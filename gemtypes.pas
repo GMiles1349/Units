@@ -46,18 +46,19 @@ uses
     PGEMColorF = ^TGEMColorF;
     TGEMColorF =  record
     public
-      Blue,Green,Red,Alpha: Single;
+      Red,Green,Blue,Alpha: Single;
       function Inverse(): TGEMColorf;
       function ToString(): String;
       procedure Lighten(AValue: Single);
       function ToGrey(): TGEMColorF;
   end;
 
+
   type
     PGEMColorI = ^TGEMColorI;
-    TGEMColorI =  record
+    TGEMColorI = record
     public
-      Blue,Green,Red,Alpha: Byte;
+      Red,Green,Blue,Alpha: Byte;
       function Inverse(): TGEMColorf;
       function ToString(): String;
       function ToGrey(): TGEMColorI;
@@ -199,7 +200,7 @@ uses
 
   type
     PGEMVec3 = ^TGEMVec3;
-    TGEMVec3 =  record
+    TGEMVec3 =  packed record
     private
       function GetNormal(): TGEMVec3;
       function GetLength(): Single;
@@ -658,6 +659,7 @@ operator -(A: TGEMRectF; B: TGEMVec3): TGEMRectF;
 
 // TGEMVec2
 operator :=(A: TPoint): TGEMVec2;
+operator :=(A: TGEMVec2): TPoint;
 operator :=(A: TGEMVec3): TGEMVec2;
 operator :=(A: TGEMVec4): TGEMVec2;
 operator Explicit(A: TPoint): TGEMVEc2;
@@ -711,6 +713,7 @@ operator +(A: TGEMColorI; B: TGEMVec4): TGEMColorI;
 operator -(A,B: TGEMColorI): TGEMColorI;
 operator -(A: TGEMColorI; B: TGEMVec4): TGEMColorI;
 operator *(A: TGEMColorI; B: Single): TGEMColorI;
+operator *(A, B: TGEMColorI): TGEMColorI;
 
 {(*///////////////////////////////////////////////////////////////////////////*)
 --------------------------------------------------------------------------------
@@ -722,11 +725,12 @@ operator *(A: TGEMColorI; B: Single): TGEMColorI;
   {* Colors *}
   function ColorF(R,G,B: Single; A: Single = 1): TGEMColorF; overload;
   function ColorF(AColorI: TGEMColorI): TGEMColorF; overload;
-
   function ColorI(R,G,B: Single; A: Single = 255): TGEMColorI; overload;
   function ColorI(AColorF: TGEMColorF): TGEMColorI; overload;
-
   function GetColorIncrements(AStartColor, AEndColor: TGEMColorF; AIncrements: Cardinal): TGEMVec4;
+  function ColorCompare(const AColor1, AColor2: TGEMColorF; const AVariance: Single = 0; const ACompareAlpha: Boolean = False): Boolean;
+  function Luminance(const aColor: TGEMColorF): Single;
+  function Inverse(const aColor: TGEMColorF; const aInvertAlpha: Boolean = False): TGEMColorF;
 
   {* Rects *}
   function RectI(ALeft,ATop,ARight,ABottom: Integer): TGEMRectI; overload;
@@ -808,80 +812,80 @@ const
   ColorFSize: Integer = 16;
 
   // colors Integer
-  GEM_empty: TGEMColorI =         (Blue: 0; Green: 0; Red: 0; Alpha: 0);
-  GEM_white: TGEMColorI =         (Blue: 255; Green: 255; Red: 255; Alpha: 255);
-  GEM_black: TGEMColorI =         (Blue: 0; Green: 0; Red: 0; Alpha: 255);
+  GEM_empty: TGEMColorI =         (Red: 0; Green: 0; Blue: 0; Alpha: 0);
+  GEM_white: TGEMColorI =         (Red: 255; Green: 255; Blue: 255; Alpha: 255);
+  GEM_black: TGEMColorI =         (Red: 0; Green: 0; Blue: 0; Alpha: 255);
 
-  GEM_grey: TGEMColorI =          (Blue: 128; Green: 128; Red: 128; Alpha: 255);
-  GEM_light_grey: TGEMColorI =    (Blue: 75; Green: 75; Red: 75; Alpha: 255);
-  GEM_dark_grey: TGEMColorI =     (Blue: 225; Green: 225; Red: 225; Alpha: 255);
+  GEM_grey: TGEMColorI =          (Red: 128; Green: 128; Blue: 128; Alpha: 255);
+  GEM_light_grey: TGEMColorI =    (Red: 75; Green: 75; Blue: 75; Alpha: 255);
+  GEM_dark_grey: TGEMColorI =     (Red: 225; Green: 225; Blue: 225; Alpha: 255);
 
-  GEM_red: TGEMColorI =           (Blue: 0; Green: 0; Red: 255; Alpha: 255);
-  GEM_ligh_red: TGEMColorI =      (Blue: 128; Green: 125; Red: 255; Alpha: 255);
-  GEM_dark_red: TGEMColorI =      (Blue: 0; Green: 0; Red: 128; Alpha: 255);
+  GEM_red: TGEMColorI =           (Red: 255; Green: 0; Blue: 0; Alpha: 255);
+  GEM_ligh_red: TGEMColorI =      (Red: 255; Green: 125; Blue: 128; Alpha: 255);
+  GEM_dark_red: TGEMColorI =      (Red: 128; Green: 0; Blue: 0; Alpha: 255);
 
-  GEM_yellow: TGEMColorI =        (Blue: 0; Green: 255; Red: 255; Alpha: 255);
-  GEM_light_yellow: TGEMColorI =  (Blue: 128; Green: 255; Red: 255; Alpha: 255);
-  GEM_dark_yellow: TGEMColorI =   (Blue: 0; Green: 128; Red: 128; Alpha: 255);
+  GEM_yellow: TGEMColorI =        (Red: 255; Green: 255; Blue: 0; Alpha: 255);
+  GEM_light_yellow: TGEMColorI =  (Red: 255; Green: 255; Blue: 128; Alpha: 255);
+  GEM_dark_yellow: TGEMColorI =   (Red: 128; Green: 128; Blue: 0; Alpha: 255);
 
-  GEM_blue: TGEMColorI =          (Blue: 255; Green: 0; Red: 0; Alpha: 255);
-  GEM_light_blue: TGEMColorI =    (Blue: 255; Green: 128; Red: 128; Alpha: 255);
-  GEM_dark_blue: TGEMColorI =     (Blue: 128; Green: 0; Red: 0; Alpha: 255);
+  GEM_blue: TGEMColorI =          (Red: 0; Green: 0; Blue: 255; Alpha: 255);
+  GEM_light_blue: TGEMColorI =    (Red: 128; Green: 128; Blue: 255; Alpha: 255);
+  GEM_dark_blue: TGEMColorI =     (Red: 0; Green: 0; Blue: 255; Alpha: 255);
 
-  GEM_green: TGEMColorI =         (Blue: 0; Green: 255; Red: 0; Alpha: 255);
-  GEM_light_green: TGEMColorI =   (Blue: 128; Green: 255; Red: 128; Alpha: 255);
-  GEM_dark_green: TGEMColorI =    (Blue: 0; Green: 128; Red: 0; Alpha: 255);
+  GEM_green: TGEMColorI =         (Red: 0; Green: 255; Blue: 0; Alpha: 255);
+  GEM_light_green: TGEMColorI =   (Red: 128; Green: 255; Blue: 128; Alpha: 255);
+  GEM_dark_green: TGEMColorI =    (Red: 0; Green: 128; Blue: 0; Alpha: 255);
 
-  GEM_orange: TGEMColorI =        (Blue: 0; Green: 128; Red: 255; Alpha: 255);
-  GEM_light_orange: TGEMColorI =  (Blue: 128; Green: 190; Red: 255; Alpha: 255);
-  GEM_dark_orange: TGEMColorI =   (Blue: 0; Green: 64; Red: 128; Alpha: 255);
+  GEM_orange: TGEMColorI =        (Red: 255; Green: 128; Blue: 0; Alpha: 255);
+  GEM_light_orange: TGEMColorI =  (Red: 255; Green: 190; Blue: 128; Alpha: 255);
+  GEM_dark_orange: TGEMColorI =   (Red: 128; Green: 64; Blue: 0; Alpha: 255);
 
-  GEM_brown: TGEMColorI =         (Blue: 0; Green: 64; Red: 128; Alpha: 255);
-  GEM_light_brown: TGEMColorI =   (Blue: 0; Green: 90; Red: 180; Alpha: 255);
-  GEM_dark_brown: TGEMColorI =    (Blue: 0; Green: 48; Red: 96; Alpha: 255);
+  GEM_brown: TGEMColorI =         (Red: 128; Green: 64; Blue: 0; Alpha: 255);
+  GEM_light_brown: TGEMColorI =   (Red: 180; Green: 90; Blue: 0; Alpha: 255);
+  GEM_dark_brown: TGEMColorI =    (Red: 96; Green: 48; Blue: 0; Alpha: 255);
 
-  GEM_purple: TGEMColorI =        (Blue: 128; Green: 0; Red: 128; Alpha: 255);
-  GEM_cyan: TGEMColorI =          (Blue: 255; Green: 255; Red: 0; Alpha: 255);
-  GEM_magenta: TGEMColorI =       (Blue: 255; Green: 0; Red: 255; Alpha: 255);
-  GEM_pink: TGEMColorI =          (Blue: 196; Green: 196; Red: 255; Alpha: 255);
+  GEM_purple: TGEMColorI =        (Red: 128; Green: 0; Blue: 128; Alpha: 255);
+  GEM_cyan: TGEMColorI =          (Red: 0; Green: 255; Blue: 255; Alpha: 255);
+  GEM_magenta: TGEMColorI =       (Red: 255; Green: 0; Blue: 255; Alpha: 255);
+  GEM_pink: TGEMColorI =          (Red: 255; Green: 196; Blue: 196; Alpha: 255);
 
   // colors float
-  GEM_empty_f: TGEMColorF =         (Blue: 0 / 255; Green: 0 / 255; Red: 0 / 255; Alpha: 0 / 255);
-  GEM_white_f: TGEMColorF =         (Blue: 255 / 255; Green: 255 / 255; Red: 255 / 255; Alpha: 255 / 255);
-  GEM_black_f: TGEMColorF =         (Blue: 0 / 255; Green: 0 / 255; Red: 0 / 255; Alpha: 255 / 255);
+  GEM_empty_f: TGEMColorF =         (Red: 0 / 255; Green: 0 / 255; Blue: 0 / 255; Alpha: 0 / 255);
+  GEM_white_f: TGEMColorF =         (Red: 255 / 255; Green: 255 / 255; Blue: 255 / 255; Alpha: 255 / 255);
+  GEM_black_f: TGEMColorF =         (Red: 0 / 255; Green: 0 / 255; Blue: 0 / 255; Alpha: 255 / 255);
 
-  GEM_grey_f: TGEMColorF =          (Blue: 128 / 255; Green: 128 / 255; Red: 128 / 255; Alpha: 255 / 255);
-  GEM_light_grey_f: TGEMColorF =    (Blue: 75 / 255; Green: 75 / 255; Red: 75 / 255; Alpha: 255 / 255);
-  GEM_dark_grey_f: TGEMColorF =     (Blue: 225 / 255; Green: 225 / 255; Red: 225 / 255; Alpha: 255 / 255);
+  GEM_grey_f: TGEMColorF =          (Red: 128 / 255; Green: 128 / 255; Blue: 128 / 255; Alpha: 255 / 255);
+  GEM_light_grey_f: TGEMColorF =    (Red: 75 / 255; Green: 75 / 255; Blue: 75 / 255; Alpha: 255 / 255);
+  GEM_dark_grey_f: TGEMColorF =     (Red: 225 / 255; Green: 225 / 255; Blue: 225 / 255; Alpha: 255 / 255);
 
-  GEM_red_f: TGEMColorF =           (Blue: 0 / 255; Green: 0 / 255; Red: 255 / 255; Alpha: 255 / 255);
-  GEM_ligh_red_f: TGEMColorF =      (Blue: 128 / 255; Green: 125 / 255; Red: 255 / 255; Alpha: 255 / 255);
-  GEM_dark_red_f: TGEMColorF =      (Blue: 0 / 255; Green: 0 / 255; Red: 128 / 255; Alpha: 255 / 255);
+  GEM_red_f: TGEMColorF =           (Red: 0 / 255; Green: 0 / 255; Blue: 255 / 255; Alpha: 255 / 255);
+  GEM_ligh_red_f: TGEMColorF =      (Red: 128 / 255; Green: 125 / 255; Blue: 255 / 255; Alpha: 255 / 255);
+  GEM_dark_red_f: TGEMColorF =      (Red: 0 / 255; Green: 0 / 255; Blue: 128 / 255; Alpha: 255 / 255);
 
-  GEM_yellow_f: TGEMColorF =        (Blue: 0 / 255; Green: 255 / 255; Red: 255 / 255; Alpha: 255 / 255);
-  GEM_light_yellow_f: TGEMColorF =  (Blue: 128 / 255; Green: 255 / 255; Red: 255 / 255; Alpha: 255 / 255);
-  GEM_dark_yellow_f: TGEMColorF =   (Blue: 0 / 255; Green: 128 / 255; Red: 128 / 255; Alpha: 255 / 255);
+  GEM_yellow_f: TGEMColorF =        (Red: 0 / 255; Green: 255 / 255; Blue: 255 / 255; Alpha: 255 / 255);
+  GEM_light_yellow_f: TGEMColorF =  (Red: 128 / 255; Green: 255 / 255; Blue: 255 / 255; Alpha: 255 / 255);
+  GEM_dark_yellow_f: TGEMColorF =   (Red: 0 / 255; Green: 128 / 255; Blue: 128 / 255; Alpha: 255 / 255);
 
-  GEM_blue_f: TGEMColorF =          (Blue: 255 / 255; Green: 0 / 255; Red: 0 / 255; Alpha: 255 / 255);
-  GEM_light_blue_f: TGEMColorF =    (Blue: 255 / 255; Green: 128 / 255; Red: 128 / 255; Alpha: 255 / 255);
-  GEM_dark_blue_f: TGEMColorF =     (Blue: 128 / 255; Green: 0 / 255; Red: 0 / 255; Alpha: 255 / 255);
+  GEM_blue_f: TGEMColorF =          (Red: 255 / 255; Green: 0 / 255; Blue: 0 / 255; Alpha: 255 / 255);
+  GEM_light_blue_f: TGEMColorF =    (Red: 255 / 255; Green: 128 / 255; Blue: 128 / 255; Alpha: 255 / 255);
+  GEM_dark_blue_f: TGEMColorF =     (Red: 128 / 255; Green: 0 / 255; Blue: 0 / 255; Alpha: 255 / 255);
 
-  GEM_green_f: TGEMColorF =         (Blue: 0 / 255; Green: 255 / 255; Red: 0 / 255; Alpha: 255 / 255);
-  GEM_light_green_f: TGEMColorF =   (Blue: 128 / 255; Green: 255 / 255; Red: 128 / 255; Alpha: 255 / 255);
-  GEM_dark_green_f: TGEMColorF =    (Blue: 0 / 255; Green: 128 / 255; Red: 0 / 255; Alpha: 255 / 255);
+  GEM_green_f: TGEMColorF =         (Red: 0 / 255; Green: 255 / 255; Blue: 0 / 255; Alpha: 255 / 255);
+  GEM_light_green_f: TGEMColorF =   (Red: 128 / 255; Green: 255 / 255; Blue: 128 / 255; Alpha: 255 / 255);
+  GEM_dark_green_f: TGEMColorF =    (Red: 0 / 255; Green: 128 / 255; Blue: 0 / 255; Alpha: 255 / 255);
 
-  GEM_orange_f: TGEMColorF =        (Blue: 0 / 255; Green: 128 / 255; Red: 255 / 255; Alpha: 255 / 255);
-  GEM_light_orange_f: TGEMColorF =  (Blue: 128 / 255; Green: 190 / 255; Red: 255 / 255; Alpha: 255 / 255);
-  GEM_dark_orange_f: TGEMColorF =   (Blue: 0 / 255; Green: 64 / 255; Red: 128 / 255; Alpha: 255 / 255);
+  GEM_orange_f: TGEMColorF =        (Red: 0 / 255; Green: 128 / 255; Blue: 255 / 255; Alpha: 255 / 255);
+  GEM_light_orange_f: TGEMColorF =  (Red: 128 / 255; Green: 190 / 255; Blue: 255 / 255; Alpha: 255 / 255);
+  GEM_dark_orange_f: TGEMColorF =   (Red: 0 / 255; Green: 64 / 255; Blue: 128 / 255; Alpha: 255 / 255);
 
-  GEM_brown_f: TGEMColorF =         (Blue: 0 / 255; Green: 64 / 255; Red: 128 / 255; Alpha: 255 / 255);
-  GEM_light_brown_f: TGEMColorF =   (Blue: 0 / 255; Green: 90 / 255; Red: 180 / 255; Alpha: 255 / 255);
-  GEM_dark_brown_f: TGEMColorF =    (Blue: 0 / 255; Green: 48 / 255; Red: 96 / 255; Alpha: 255 / 255);
+  GEM_brown_f: TGEMColorF =         (Red: 0 / 255; Green: 64 / 255; Blue: 128 / 255; Alpha: 255 / 255);
+  GEM_light_brown_f: TGEMColorF =   (Red: 0 / 255; Green: 90 / 255; Blue: 180 / 255; Alpha: 255 / 255);
+  GEM_dark_brown_f: TGEMColorF =    (Red: 0 / 255; Green: 48 / 255; Blue: 96 / 255; Alpha: 255 / 255);
 
-  GEM_purple_f: TGEMColorF =        (Blue: 128 / 255; Green: 0 / 255; Red: 128 / 255; Alpha: 255 / 255);
-  GEM_cyan_f: TGEMColorF =          (Blue: 255 / 255; Green: 255 / 255; Red: 0 / 255; Alpha: 255 / 255);
-  GEM_magenta_f: TGEMColorF =       (Blue: 255 / 255; Green: 0 / 255; Red: 255 / 255; Alpha: 255 / 255);
-  GEM_pink_f: TGEMColorF =          (Blue: 196 / 255; Green: 196 / 255; Red: 255 / 255; Alpha: 255 / 255);
+  GEM_purple_f: TGEMColorF =        (Red: 128 / 255; Green: 0 / 255; Blue: 128 / 255; Alpha: 255 / 255);
+  GEM_cyan_f: TGEMColorF =          (Red: 255 / 255; Green: 255 / 255; Blue: 0 / 255; Alpha: 255 / 255);
+  GEM_magenta_f: TGEMColorF =       (Red: 255 / 255; Green: 0 / 255; Blue: 255 / 255; Alpha: 255 / 255);
+  GEM_pink_f: TGEMColorF =          (Red: 196 / 255; Green: 196 / 255; Blue: 255 / 255; Alpha: 255 / 255);
 
   // rects
   from_center: Integer = 0;
@@ -957,6 +961,29 @@ RedDiff,GreenDiff,BlueDiff,AlphaDiff: Single;
     Result := Vec4(RedChange,GreenChange,BlueChange,AlphaChange);
   end;
 
+function ColorCompare(const AColor1, AColor2: TGEMColorF; const AVariance: Single = 0; const ACompareAlpha: Boolean = False): Boolean;
+  begin
+    Result := True;
+    if abs(AColor1.Red - AColor2.Red) > AVariance then Exit(False);
+    if abs(AColor1.Green - AColor2.Green) > AVariance then Exit(False);
+    if abs(AColor1.Blue - AColor2.Blue) > AVariance then Exit(False);
+    if ACompareAlpha then begin
+      if abs(AColor1.Alpha - AColor2.Alpha) > AVariance then Exit(False);
+    end;
+  end;
+
+function Luminance(const aColor: TGEMColorF): Single;
+  begin
+    Exit( (aColor.Red * 0.2126) + (aColor.Green * 0.7152) + (aColor.Blue * 0.0722) );
+  end;
+
+function Inverse(const aColor: TGEMColorF; const aInvertAlpha: Boolean = False): TGEMColorF;
+  begin
+    Result.Red := 1 - aColor.Red;
+    Result.Green := 1 - aColor.Green;
+    Result.Blue := 1 - aColor.Blue;
+    if aInvertAlpha then Result.Alpha := 1 - aColor.Alpha else Result.Alpha := 1;
+  end;
 
 function RectI(ALeft,ATop,ARight,ABottom: Integer): TGEMRectI;
   begin
@@ -2125,6 +2152,17 @@ operator *(A: TGEMColorI; B: Single): TGEMColorI;
     Result.Blue := ClampI(A.Blue * B);
   end;
 
+operator *(A, B: TGEMColorI): TGEMColorI;
+var
+Per: Single;
+  begin
+    Per := B.Alpha / 255;
+    Result.Red := trunc((A.Red * (B.Red * Per)) / 255);
+    Result.Green := trunc((A.Green * (B.Green * Per)) / 255);
+    Result.Blue := trunc((A.Blue * (B.Blue * Per)) / 255);
+    Result.Alpha := A.Alpha;
+  end;
+
 {(*///////////////////////////////////////////////////////////////////////////*)
 --------------------------------------------------------------------------------
                                    TGEMRectI
@@ -2839,6 +2877,16 @@ operator :=(A: TPoint): TGEMVEc2;
   begin
     Result.X := A.X;
     Result.Y := A.Y;
+  end;
+
+{$ifndef FPC}
+class operator TGEMVec2Helper.Implicit(A: TPoint): TGEMVEc2;
+{$else}
+operator :=(A: TGEMVec2): TPoint;
+{$endif}
+  begin
+    Result.X := trunc(A.X);
+    Result.Y := trunc(A.Y);
   end;
 
 {$ifndef FPC}

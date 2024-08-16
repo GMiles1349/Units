@@ -5,7 +5,7 @@ unit gemprogram;
 interface
 
 uses
-  Unix, BaseUnix, Process, Users,
+  Unix, BaseUnix, Process, Users, FileInfo,
   Classes, SysUtils;
 
 { IMPORTS }
@@ -41,6 +41,11 @@ type
       fName: String;
       fArg: Array of String;
       fArgCount: Cardinal;
+      fVersionInfo: TVersionInfo;
+      fMajorVersion: Integer;
+      fMinorVersion: Integer;
+      fRevisionNumber: Integer;
+      fBuildNumber: Integer;
 
       class var fSigProc: Array [1..31] of TGEMSigProc;
       class var fSigAction: Array [1..31] of PSigActionRec;
@@ -50,6 +55,7 @@ type
 
       function GetArg(const Index: Cardinal): String;
       function GetIsRoot(): Boolean;
+      function GetVersionString(): String;
 
       procedure RelaunchRoot();
 
@@ -64,6 +70,11 @@ type
       property Name: String read fName;
       property Arg[Index: Cardinal]: String read GetArg;
       property ArgCount: Cardinal read fArgCount;
+      property MajorVersion: Integer read fMajorVersion;
+      property MinorVersion: Integer read fMinorVersion;
+      property RevisionNumber: Integer read fRevisionNumber;
+      property BuildNumber: Integer read fBuildNumber;
+      property VersionString: String read GetVersionString;
 
       constructor Create(const aNeedRoot: Boolean = False);
 
@@ -121,6 +132,15 @@ RetStr: String;
     fEUserName := GetEnvironmentVariable('USER');
     fUserName := GetUserName(fUID);
 
+    // version info
+    Self.fVersionInfo := TVersionInfo.Create();
+    Self.fVersionInfo.Load(HINSTANCE);
+    Self.fMajorVersion := Self.fVersionInfo.FixedInfo.FileVersion[0];
+    Self.fMinorVersion := Self.fVersionInfo.FixedInfo.FileVersion[1];
+    Self.fRevisionNumber := Self.fVersionInfo.FixedInfo.FileVersion[2];
+    Self.fBuildNumber := Self.fVersionInfo.FixedInfo.FileVersion[3];
+    Self.fVersionInfo.Free();
+
   end;
 
 function TGEMProgram.GetArg(const Index: Cardinal): String;
@@ -132,6 +152,14 @@ function TGEMProgram.GetArg(const Index: Cardinal): String;
 function TGEMProgram.GetIsRoot(): Boolean;
   begin
     Exit(fEUID = 0);
+  end;
+
+function TGEMProgram.GetVersionString(): String;
+  begin
+    Result := Self.fMajorVersion.ToString() + '.';
+    Result := Result + Self.fMinorVersion.ToString() + '.';
+    Result := Result + Self.fRevisionNumber.ToString() + '.';
+    Result := Result + Self.fBuildNumber.ToString();
   end;
 
 procedure TGEMProgram.RelaunchRoot();

@@ -11,129 +11,276 @@ uses
   {$ifndef FPC}
   System.SysUtils, WinAPI.Windows,
   {$else}
-  Linux, UnixType, BaseUnix,
+  Linux, UnixType, BaseUnix, SysUtils,
   {$endif}
   Classes;
 
+type
+  TTimeSpec = UnixType.timespec;
+  TGEMTriggerType = (GEM_trigger_on_time = 0, GEM_trigger_on_interval = 1);
+  TGEMClockEvent = procedure;
 
-  type
-    TGEMTriggerType = (GEM_trigger_on_time = 0, GEM_trigger_on_interval = 1);
-    TGEMClockEvent = procedure;
+  TGEMClock = Class;
+  TGEMEvent = Class;
 
-    TGEMClock = Class;
-    TGEMEvent = Class;
+  TGEMDateStruct = record
+    private
+      fYear: Cardinal;
+      fMonth: Cardinal;
+      fDay: Cardinal;
 
+      procedure SetYear(const aYear: Cardinal);
+      procedure SetMonth(const aMonth: Cardinal);
+      procedure SetDay(const aDay: Cardinal);
 
-    TGEMClock = Class
-      private
-        {$ifndef FPC}
-        Freq: Int64;
-        InTime: Int64;
-        {$else}
-        Freq: Int64;
-        InTime: TTimeSpec;
-        {$endif}
-        fRunning: Boolean;
-        fStartTime: Double;
-        fInterval: Double;
-        fCurrentTime: Double;
-        fLastTime: Double;
-        fCycleTime: Double;
-        fTargetTime: Double;
-        fElapsedTime: Double;
-        fFPS: Double;
-        fAverageFPS: Double;
-        fFPSCount: Integer;
-        fFPSTotal: Double;
-        fFrames: Integer;
-        fFrameTime: Double;
-        fCatchUpEnabled: Boolean;
-        fTicks: Int64;
-        fExpectedTicks: Int64;
+    public
+      property Year: Cardinal read fYear write SetYear;
+      property Month: Cardinal read fMonth write SetMonth;
+      property Day: Cardinal read fDay write SetDay;
 
-        fEvents: specialize TArray<TGEMEvent>;
-        fEventCount: Integer;
+      constructor Create(const aYear, aMonth, aDay: Cardinal);
 
-        procedure Init(); register;
-        procedure Update(); register;
-        procedure AddEvent(AEvent: TGEMEvent); register;
-        procedure RemoveEvent(AEvent: TGEMEvent); register;
-        procedure HandleEvents(); register;
-
-        procedure SetCatchUp(Enable: Boolean = True); register;
-
-      public
-        property Running: Boolean read fRunning;
-        property Ticks: Int64 read fTicks;
-        property ExpectedTicks: Int64 read fExpectedTicks;
-        property Interval: Double read fInterval;
-        property StartTime: Double read fStartTime;
-        property CurrentTime: Double read fCurrentTime;
-        property LastTime: Double read fLastTime;
-        property CycleTime: Double read fCycleTime;
-        property TargetTime: Double read fTargetTime;
-        property ElapsedTime: Double read fElapsedTime;
-        property FPS: Double read fFPS;
-        property AverageFPS: Double read fAverageFPS;
-        property CatchUpEnabled: Boolean read fCatchUpEnabled write SetCatchUp;
-
-        constructor Create(AFPS: Integer = 60); overload;
-        constructor Create(AInterval: Double = 0.0166666); overload;
-
-        procedure Start(); register;
-        procedure Stop(); register;
-        procedure Wait(); register;
-        procedure WaitForStableFrame(); register;
-        procedure SetIntervalInSeconds(AInterval: Double); register;
-        procedure SetIntervalInFPS(AInterval: Double); register;
-        function GetTime(): Double; register;
-    end;
+      procedure SetDate(const aYear, aMonth, aDay: Cardinal);
+      procedure SetCurrentDate();
+      function Difference(const aDate: TGEMDateStruct): Integer;
+  end;
 
 
-    TGEMEvent = class
-      private
-        fActive: Boolean;
-        fRepeating: Boolean;
-        fOwner: TGEMClock;
-        fEventProc: TGEMClockEvent;
-        fTriggerType: TGEMTriggerType;
-        fTriggerTime: Double;
-        fNextTriggerTime: Double;
+  TGEMClock = Class
+    private
+      {$ifndef FPC}
+      Freq: Int64;
+      InTime: Int64;
+      {$else}
+      Freq: Int64;
+      InTime: TTimeSpec;
+      {$endif}
+      fRunning: Boolean;
+      fStartTime: Double;
+      fInterval: Double;
+      fCurrentTime: Double;
+      fLastTime: Double;
+      fCycleTime: Double;
+      fTargetTime: Double;
+      fElapsedTime: Double;
+      fFPS: Double;
+      fAverageFPS: Double;
+      fFPSCount: Integer;
+      fFPSTotal: Double;
+      fFrames: Integer;
+      fFrameTime: Double;
+      fCatchUpEnabled: Boolean;
+      fTicks: Int64;
+      fExpectedTicks: Int64;
 
-        procedure SetRepeating(const Value: Boolean);
-        procedure SetEventProc(const Value: TGEMClockEvent);
+      fEvents: specialize TArray<TGEMEvent>;
+      fEventCount: Integer;
 
-        // fTriggerTime is used for TriggerTime and TriggerInterval
-        // if trigger type is on time, then setting interval or getting interval will fail or return 0
-        // if trigger type is on interval, then setting time or getting time with fail or return 0
+      procedure Init(); register;
+      procedure Update(); register;
+      procedure AddEvent(AEvent: TGEMEvent); register;
+      procedure RemoveEvent(AEvent: TGEMEvent); register;
+      procedure HandleEvents(); register;
 
-        function GetTriggerInterval: Double;
-        function GetTriggerTime: Double;
-        procedure SetTriggerInterval(const Value: Double);
-        procedure SetTriggerTime(const Value: Double);
-        procedure SetActive(const Value: Boolean);
+      procedure SetCatchUp(Enable: Boolean = True); register;
 
-      public
-        property Owner: TGEMClock read fOwner;
-        property Active: Boolean read fActive write SetActive;
-        property Repeating: Boolean read fRepeating write SetRepeating;
-        property EventProc: TGEMClockEvent read fEventProc write SetEventProc;
-        property TriggerType: TGEMTriggerType read fTriggerType;
-        property TriggerTime: Double read GetTriggerTime write SetTriggerTime;
-        property TriggerInterval: Double read GetTriggerInterval write SetTriggerInterval;
+    public
+      property Running: Boolean read fRunning;
+      property Ticks: Int64 read fTicks;
+      property ExpectedTicks: Int64 read fExpectedTicks;
+      property Interval: Double read fInterval;
+      property StartTime: Double read fStartTime;
+      property CurrentTime: Double read fCurrentTime;
+      property LastTime: Double read fLastTime;
+      property CycleTime: Double read fCycleTime;
+      property TargetTime: Double read fTargetTime;
+      property ElapsedTime: Double read fElapsedTime;
+      property FPS: Double read fFPS;
+      property AverageFPS: Double read fAverageFPS;
+      property CatchUpEnabled: Boolean read fCatchUpEnabled write SetCatchUp;
 
-        constructor Create(); overload;
-        constructor Create(AOwner: TGEMClock; AActive: Boolean; ATriggerAtTime: Double); overload;
-        constructor Create(AOwner: TGEMClock; AActive: Boolean; ATriggerAtInterval: Double; ARepeating: Boolean = False); overload;
+      constructor Create(AFPS: Integer = 60); overload;
+      constructor Create(AInterval: Double = 0.0166666); overload;
 
-        destructor Destroy(); override;
+      procedure Start(); register;
+      procedure Stop(); register;
+      procedure Wait(); register;
+      procedure WaitForStableFrame(); register;
+      procedure SetIntervalInSeconds(AInterval: Double); register;
+      procedure SetIntervalInFPS(AInterval: Double); register;
+      function GetTime(): Double; register;
+  end;
 
-        procedure AssignToOwner(AOwner: TGEMClock; AActive: Boolean = True); register;
-        procedure RemoveFromOwner(); register;
 
-end;
+  TGEMEvent = class
+    private
+      fActive: Boolean;
+      fRepeating: Boolean;
+      fOwner: TGEMClock;
+      fEventProc: TGEMClockEvent;
+      fTriggerType: TGEMTriggerType;
+      fTriggerTime: Double;
+      fNextTriggerTime: Double;
+
+      procedure SetRepeating(const Value: Boolean);
+      procedure SetEventProc(const Value: TGEMClockEvent);
+
+      // fTriggerTime is used for TriggerTime and TriggerInterval
+      // if trigger type is on time, then setting interval or getting interval will fail or return 0
+      // if trigger type is on interval, then setting time or getting time with fail or return 0
+
+      function GetTriggerInterval: Double;
+      function GetTriggerTime: Double;
+      procedure SetTriggerInterval(const Value: Double);
+      procedure SetTriggerTime(const Value: Double);
+      procedure SetActive(const Value: Boolean);
+
+    public
+      property Owner: TGEMClock read fOwner;
+      property Active: Boolean read fActive write SetActive;
+      property Repeating: Boolean read fRepeating write SetRepeating;
+      property EventProc: TGEMClockEvent read fEventProc write SetEventProc;
+      property TriggerType: TGEMTriggerType read fTriggerType;
+      property TriggerTime: Double read GetTriggerTime write SetTriggerTime;
+      property TriggerInterval: Double read GetTriggerInterval write SetTriggerInterval;
+
+      constructor Create(); overload;
+      constructor Create(AOwner: TGEMClock; AActive: Boolean; ATriggerAtTime: Double); overload;
+      constructor Create(AOwner: TGEMClock; AActive: Boolean; ATriggerAtInterval: Double; ARepeating: Boolean = False); overload;
+
+      destructor Destroy(); override;
+
+      procedure AssignToOwner(AOwner: TGEMClock; AActive: Boolean = True); register;
+      procedure RemoveFromOwner(); register;
+  end;
+
+
+  (* Date Functions *)
+  function gemMonthLength(const aMonth: Cardinal; aYear: Cardinal = 0): Cardinal; overload;
+  function gemMonthLength(const aMonth: String; aYear: Cardinal = 0): Cardinal; overload;
+  function gemYearLength(const aYear: Cardinal): Cardinal;
+  function gemOrdinalDate(const aYear, aMonth, aDay: Cardinal): Cardinal;
+
+  // sleeping
+  procedure gemSleep(const amilliseconds: UInt64); inline;
+  procedure gemUSleep(const amicroseconds: UInt64); inline;
+  procedure gemNSleep(const ananoseconds: UInt64); inline;
+  procedure gemSleepUntil(const atime: TTimeSpec); inline; overload;
+  procedure gemSleepUntil(const atime: Double); inline; overload;
+
+  // time-keeping
+  function gemGetCPUTime(): TTimeSpec; inline; overload;
+  function gemGetProcessTime(): TTimeSpec; inline; overload;
+  procedure gemResetProcessTime(); inline;
+
+  // time conversion
+  function gemTStoSecs(const atimespec: TTimeSpec): Double; inline;
 
 implementation
+
+var
+  RequiredTime: TTimeSpec;
+  RemainingTime: TTimeSpec;
+
+(*/////////////////////////////////////////////////////////////////////////////)
+(------------------------------------------------------------------------------)
+                              TGEMDateStruct
+(------------------------------------------------------------------------------)
+(/////////////////////////////////////////////////////////////////////////////*)
+
+constructor TGEMDateStruct.Create(const aYear, aMonth, aDay: Cardinal);
+	begin
+  	Self.SetYear(aYear);
+    Self.SetMonth(aMonth);
+    Self.SetDay(aDay);
+  end;
+
+procedure TGEMDateStruct.SetYear(const aYear: Cardinal);
+	begin
+  	fYear := aYear;
+  end;
+
+procedure TGEMDateStruct.SetMonth(const aMonth: Cardinal);
+	begin
+  	if aMonth = 0 then begin
+      fMonth := 1;
+    end else if aMonth > 12 then begin
+      fMonth := 12;
+    end else begin
+      fMonth := aMonth;
+    end;
+
+    Self.SetDay(fDay);
+  end;
+
+procedure TGEMDateStruct.SetDay(const aDay: Cardinal);
+var
+MaxDay: Cardinal;
+	begin
+  	MaxDay := gemMonthLength(fMonth);
+    if aDay = 0 then begin
+      fDay := 0;
+    end else if aDay > MaxDay then begin
+      fDay := MaxDay;
+    end else begin
+      fDay := aDay;
+    end;
+  end;
+
+procedure TGEMDateStruct.SetDate(const aYear, aMonth, aDay: Cardinal);
+	begin
+  	Self.Year := aYear;
+    Self.Month := aMonth;
+    Self.Day := aDay;
+  end;
+
+procedure TGEMDateStruct.SetCurrentDate();
+var
+y,m,d: Word;
+  begin
+  	DecodeDate(Date, y, m ,d);
+    Self.SetDate(y, m, d);
+  end;
+
+function TGEMDateStruct.Difference(const aDate: TGEMDateStruct): Integer;
+var
+LowDate, HighDate: ^TGEMDateStruct;
+SDays, DDays: Cardinal;
+YearDiff: Cardinal;
+I: Integer;
+	begin
+    LowDate := nil;
+    HighDate := nil;
+
+  	if Self.Year < aDate.Year then begin
+      LowDate := @Self;
+      HighDate := @aDate;
+    end else if aDate.Year < Self.Year then begin
+      LowDate := @aDate;
+      HighDate := @Self;
+    end;
+
+    SDays := gemOrdinalDate(Self.Year, Self.Month, Self.Day);
+    DDays := gemOrdinalDate(aDate.Year, aDate.Month, aDate.Day);
+
+    if Assigned(LowDate) then begin
+    	YearDiff := 0;
+      for I := LowDate^.Year to HighDate^.Year - 1 do begin
+        Inc(YearDiff, gemYearLength(I));
+      end;
+
+      if LowDate = @Self then begin
+        DDays := DDays + YearDiff + 1;
+      end else begin
+        SDays := SDays + YearDiff + 1;
+      end;
+
+      LowDate := nil;
+      HighDate := nil;
+    end;
+
+    Result := SDays - DDays;
+  end;
 
 {(*///////////////////////////////////////////////////////////////////////////*)
 --------------------------------------------------------------------------------
@@ -500,6 +647,222 @@ procedure TGEMEvent.SetEventProc(const Value: TGEMClockEvent);
 procedure TGEMEvent.SetRepeating(const Value: Boolean);
   begin
     fRepeating := Value;
+  end;
+
+function gemMonthLength(const aMonth: Cardinal; aYear: Cardinal = 0): Cardinal;
+	begin
+
+    if aYear = 0 then aYear := CurrentYear();
+
+    case aMonth of
+      1: Exit(31);
+      2:
+      	begin
+        	if aYear mod 4 = 0 then begin
+            Exit(29);
+          end else begin
+            Exit(28);
+          end;
+        end;
+
+      3: Exit(31);
+      4: Exit(30);
+      5: Exit(31);
+      6: Exit(30);
+      7: Exit(31);
+      8: Exit(31);
+      9: Exit(30);
+      10:Exit(31);
+      11:Exit(30);
+      12:Exit(31);
+      else Exit(0);
+
+    end;
+  end;
+
+function gemMonthLength(const aMonth: String; aYear: Cardinal = 0): Cardinal;
+	begin
+    if aYear = 0 then aYear := CurrentYear();
+
+  	if CompareText(aMonth, 'JAN') <> 0 then begin
+    	Exit(31);
+    end else if CompareText(aMonth, 'FEB') <> 0 then begin
+      if aYear mod 4 = 0 then begin
+        Exit(29);
+      end else begin
+        Exit(28);
+      end;
+    end else if CompareText(aMonth, 'MAR') <> 0 then begin
+      Exit(31);
+    end else if CompareText(aMonth, 'APR') <> 0 then begin
+      Exit(30);
+    end else if CompareText(aMonth, 'MAY') <> 0 then begin
+      Exit(31);
+    end else if CompareText(aMonth, 'JUN') <> 0 then begin
+      Exit(30);
+    end else if CompareText(aMonth, 'JUL') <> 0 then begin
+      Exit(31);
+    end else if CompareText(aMonth, 'AUG') <> 0 then begin
+      Exit(31);
+    end else if CompareText(aMonth, 'SEP') <> 0 then begin
+      Exit(30);
+    end else if CompareText(aMonth, 'OCT') <> 0 then begin
+      Exit(31);
+    end else if CompareText(aMonth, 'NOV') <> 0 then begin
+      Exit(30);
+    end else if CompareText(aMonth, 'DEC') <> 0 then begin
+      Exit(31);
+    end else begin
+      Exit(0);
+    end;
+  end;
+
+function gemYearLength(const aYear: Cardinal): Cardinal;
+	begin
+    if aYear mod 4 = 0 then Exit(366) else Exit(365);
+  end;
+
+function gemOrdinalDate(const aYear, aMonth, aDay: Cardinal): Cardinal;
+var
+I: Integer;
+	begin
+    Result := 0;
+
+    if (aMonth = 0) or (aMonth > 12) then Exit(0);
+    if (aDay = 0) or (aDay > gemMonthLength(aMonth, aYear)) then Exit(0);
+
+    for I := 1 to aMonth - 1 do begin
+    	Result := Result + gemMonthLength(I);
+    end;
+
+    Result := Result + aDay;
+
+  end;
+
+procedure gemSleep(const amilliseconds: UInt64);
+var
+m,s: UInt64;
+	begin
+  	m := amilliseconds;
+    s := 0;
+    while m >= 1000 do begin
+      s := s + 1;
+      m := m - 1000;
+    end;
+
+    RequiredTime.tv_sec := s;
+    RequiredTime.tv_nsec := m * 1000000;
+    FillByte(RemainingTime, sizeof(TTimespec), 0);
+    repeat
+      fpNanoSleep(@RequiredTime, @RemainingTime);
+    until (RemainingTime.tv_nsec = 0) and (RemainingTime.tv_sec = 0);
+
+  end;
+
+procedure gemUSleep(const amicroseconds: UInt64);
+var
+u,s: UInt64;
+	begin
+    u := amicroseconds;
+		s := 0;
+    while u >= 1000000 do begin
+      s := s + 1;
+      u := u - 1000000;
+    end;
+
+    RequiredTime.tv_sec := s;
+    RequiredTime.tv_nsec := u * 100;
+    FillByte(RemainingTime, sizeof(TTimespec), 0);
+    repeat
+      fpNanoSleep(@RequiredTime, @RemainingTime);
+    until (RemainingTime.tv_nsec = 0) and (RemainingTime.tv_sec = 0);
+  end;
+
+procedure gemNSleep(const ananoseconds: UInt64);
+var
+n,s: UInt64;
+	begin
+    n := ananoseconds;
+		s := 0;
+    while n >= 1000000000 do begin
+      s := s + 1;
+      n := n - 1000000000;
+    end;
+
+    RequiredTime.tv_sec := s;
+    RequiredTime.tv_nsec := n;
+    FillByte(RemainingTime, sizeof(TTimespec), 0);
+    repeat
+      fpNanoSleep(@RequiredTime, @RemainingTime);
+    until (RemainingTime.tv_nsec = 0) and (RemainingTime.tv_sec = 0);
+  end;
+
+function gemGetCPUTime(): TTimeSpec;
+	begin
+  	clock_gettime(CLOCK_MONOTONIC_RAW, @Result);
+  end;
+
+
+function gemGetProcessTime(): TTimeSpec;
+	begin
+  	clock_gettime(CLOCK_THREAD_CPUTIME_ID, @Result);
+  end;
+
+procedure gemResetProcessTime();
+	begin
+    FillByte(RequiredTime, sizeof(TTimeSpec), 0);
+    clock_settime(CLOCK_THREAD_CPUTIME_ID, @RequiredTime);
+  end;
+
+function gemTStoSecs(const atimespec: TTimeSpec): Double;
+	begin
+    Exit(atimespec.tv_sec + (atimespec.tv_nsec * 1e-9));
+  end;
+
+procedure gemSleepUntil(const atime: TTimeSpec);
+var
+UseTime: TTimeSpec;
+  begin
+  	RequiredTime := gemGetCPUTime();
+    UseTime.tv_sec := atime.tv_sec - RequiredTime.tv_sec;
+    UseTime.tv_nsec := atime.tv_nsec - RequiredTime.tv_nsec;
+
+    while UseTime.tv_nsec < 0 do begin
+      UseTime.tv_nsec := UseTime.tv_nsec + 1000000000;
+      UseTime.tv_sec := UseTime.tv_sec - 1;
+    end;
+
+    if (UseTime.tv_sec < 0) or (UseTime.tv_nsec < 0) then Exit();
+
+    repeat
+    	fpNanoSleep(@UseTime, @RemainingTime);
+    until (RemainingTime.tv_sec = 0) and (RemainingTime.tv_nsec = 0);
+
+  end;
+
+procedure gemSleepUntil(const atime: Double);
+var
+UseTime: TTimeSpec;
+Rem: Double;
+n,s: Int64;
+  begin
+    s := trunc(atime);
+    Rem := atime - s;
+    n := trunc(Rem * 1000000000);
+  	RequiredTime := gemGetCPUTime();
+    UseTime.tv_sec := s - RequiredTime.tv_sec;
+    UseTime.tv_nsec := n - RequiredTime.tv_nsec;
+
+    while UseTime.tv_nsec < 0 do begin
+      UseTime.tv_nsec := UseTime.tv_nsec + 1000000000;
+      UseTime.tv_sec := UseTime.tv_sec - 1;
+    end;
+
+    if (UseTime.tv_sec < 0) or (UseTime.tv_nsec < 0) then Exit();
+
+    repeat
+    	fpNanoSleep(@UseTime, @RemainingTime);
+    until (RemainingTime.tv_sec = 0) and (RemainingTime.tv_nsec = 0);
   end;
 
 

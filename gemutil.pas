@@ -20,7 +20,7 @@ interface
 
 uses
   {$ifdef LINUX}
-  {Crt,} Linux, BaseUnix, Unix, UnixType, Process, ncurses, Users,
+  BaseUnix, Unix, UnixType, Process, ncurses,
   {$else}
   Windows,
   {$endif}
@@ -96,31 +96,6 @@ type
 
   end;
 
-
-  TGEMDateStruct = record
-    private
-    	fYear: Cardinal;
-    	fMonth: Cardinal;
-    	fDay: Cardinal;
-
-    	procedure SetYear(const aYear: Cardinal);
-      procedure SetMonth(const aMonth: Cardinal);
-      procedure SetDay(const aDay: Cardinal);
-
-    public
-    	property Year: Cardinal read fYear write SetYear;
-    	property Month: Cardinal read fMonth write SetMonth;
-    	property Day: Cardinal read fDay write SetDay;
-
-    	constructor Create(const aYear, aMonth, aDay: Cardinal);
-
-      procedure SetDate(const aYear, aMonth, aDay: Cardinal);
-      procedure SetCurrentDate();
-      function Difference(const aDate: TGEMDateStruct): Integer;
-  end;
-
-  TTimeSpec = UnixType.timespec;
-
   (* Posix Error Handling *)
   function gemWriteError(const message: String = ''): Int32;
 
@@ -169,6 +144,7 @@ type
   function gemWriteFile(const aFileName: String; const aData: Pointer; const aSize: UInt32; const aOverWriteExisting: Boolean = False): Int32; overload;
   function gemWriteFile(const aFileName: String; const aData: PChar; const aOverWriteExisting: Boolean = False): Int32; overload;
   function gemWriteFile(const aFileName: String; const aData: String; const aOverWriteExisting: Boolean = False): Int32; overload;
+  function gemAppendFile(const aFileName: String; const aData: Pointer; const aSize: UInt32): Int32; overload;
   function gemDeleteFile(const aFileName: String): Int32;
 	function gemDeleteFileOverWrite(const aFileName: String): Int32;
   function gemDeleteDirectory(const aFileName: String): Int32;
@@ -203,30 +179,13 @@ type
   function gemInitMemory(const aSize: UInt64; const aValues: Pointer; const aValuesSize: Cardinal): Pointer; overload;
   function gemCopyMemory(var aData: Pointer; const aDataSize: Integer): Pointer;
 
+  (* Console / Terminal *)
+  function gemReadLnYesNo(const aDefault: Integer = -1): Boolean;
+  function gemReadLnRange(const aLow, aHigh: Integer; const aUseDefault: Boolean = False; const aDefault: Integer = 0): Integer;
+
   (* Misc / Math *)
   function gemPaethPredictorByte(const A, B, C: Byte): Byte;
   function gemWrapByte(const aValue: Integer): Byte;
-
-  (* Date Functions *)
-  function gemMonthLength(const aMonth: Cardinal; aYear: Cardinal = 0): Cardinal; overload;
-  function gemMonthLength(const aMonth: String; aYear: Cardinal = 0): Cardinal; overload;
-  function gemYearLength(const aYear: Cardinal): Cardinal;
-  function gemOrdinalDate(const aYear, aMonth, aDay: Cardinal): Cardinal;
-
-  // sleeping
-	procedure gemSleep(const amilliseconds: UInt64); inline;
-  procedure gemUSleep(const amicroseconds: UInt64); inline;
-  procedure gemNSleep(const ananoseconds: UInt64); inline;
-  procedure gemSleepUntil(const atime: TTimeSpec); inline; overload;
-  procedure gemSleepUntil(const atime: Double); inline; overload;
-
-  // time-keeping
-  function gemGetCPUTime(): TTimeSpec; inline; overload;
-  function gemGetProcessTime(): TTimeSpec; inline; overload;
-  procedure gemResetProcessTime(); inline;
-
-  // time conversion
-  function gemTStoSecs(const atimespec: TTimeSpec): Double; inline;
 
   (* Operators *)
   operator := (const A: specialize TArray<String>): String;
@@ -235,10 +194,6 @@ var
 	GEMOutputEnabled: Boolean = False;
 
 implementation
-
-var
-  RequiredTime: TTimeSpec;
-  RemainingTime: TTimeSpec;
 
 (*/////////////////////////////////////////////////////////////////////////////)
 (------------------------------------------------------------------------------)
@@ -717,106 +672,6 @@ RemSize: Integer;
 
 (*/////////////////////////////////////////////////////////////////////////////)
 (------------------------------------------------------------------------------)
-                              TGEMDateStruct
-(------------------------------------------------------------------------------)
-(/////////////////////////////////////////////////////////////////////////////*)
-
-constructor TGEMDateStruct.Create(const aYear, aMonth, aDay: Cardinal);
-	begin
-  	Self.SetYear(aYear);
-    Self.SetMonth(aMonth);
-    Self.SetDay(aDay);
-  end;
-
-procedure TGEMDateStruct.SetYear(const aYear: Cardinal);
-	begin
-  	fYear := aYear;
-  end;
-
-procedure TGEMDateStruct.SetMonth(const aMonth: Cardinal);
-	begin
-  	if aMonth = 0 then begin
-      fMonth := 1;
-    end else if aMonth > 12 then begin
-      fMonth := 12;
-    end else begin
-      fMonth := aMonth;
-    end;
-
-    Self.SetDay(fDay);
-  end;
-
-procedure TGEMDateStruct.SetDay(const aDay: Cardinal);
-var
-MaxDay: Cardinal;
-	begin
-  	MaxDay := gemMonthLength(fMonth);
-    if aDay = 0 then begin
-      fDay := 0;
-    end else if aDay > MaxDay then begin
-      fDay := MaxDay;
-    end else begin
-      fDay := aDay;
-    end;
-  end;
-
-procedure TGEMDateStruct.SetDate(const aYear, aMonth, aDay: Cardinal);
-	begin
-  	Self.Year := aYear;
-    Self.Month := aMonth;
-    Self.Day := aDay;
-  end;
-
-procedure TGEMDateStruct.SetCurrentDate();
-var
-y,m,d: Word;
-  begin
-  	DecodeDate(Date, y, m ,d);
-    Self.SetDate(y, m, d);
-  end;
-
-function TGEMDateStruct.Difference(const aDate: TGEMDateStruct): Integer;
-var
-LowDate, HighDate: ^TGEMDateStruct;
-SDays, DDays: Cardinal;
-YearDiff: Cardinal;
-I: Integer;
-	begin
-    LowDate := nil;
-    HighDate := nil;
-
-  	if Self.Year < aDate.Year then begin
-      LowDate := @Self;
-      HighDate := @aDate;
-    end else if aDate.Year < Self.Year then begin
-      LowDate := @aDate;
-      HighDate := @Self;
-    end;
-
-    SDays := gemOrdinalDate(Self.Year, Self.Month, Self.Day);
-    DDays := gemOrdinalDate(aDate.Year, aDate.Month, aDate.Day);
-
-    if Assigned(LowDate) then begin
-    	YearDiff := 0;
-      for I := LowDate^.Year to HighDate^.Year - 1 do begin
-        Inc(YearDiff, gemYearLength(I));
-      end;
-
-      if LowDate = @Self then begin
-        DDays := DDays + YearDiff + 1;
-      end else begin
-        SDays := SDays + YearDiff + 1;
-      end;
-
-      LowDate := nil;
-      HighDate := nil;
-    end;
-
-    Result := SDays - DDays;
-  end;
-
-(*/////////////////////////////////////////////////////////////////////////////)
-(------------------------------------------------------------------------------)
                               File Functions
 (------------------------------------------------------------------------------)
 (/////////////////////////////////////////////////////////////////////////////*)
@@ -1088,20 +943,21 @@ BytesWritten: Cardinal;
 
     {$ifdef LINUX}
 
-      FHandle := fpOpen(aFileName, O_RDWR or O_CREAT or O_TRUNC, S_IRWXO);
+      Result := 0;
+
+      if aSize = 0 then Exit(0);
+
+      FHandle := fpOpen(aFileName, O_RDWR or O_CREAT or O_TRUNC);
 
       if FHandle = -1 then begin
         gemWriteError('Cannot open file ' + aFileName + ': ');
-
       end;
 
       if FHandle <> -1 then begin
         if aOverWriteExisting = False then Exit(-1);
       end;
 
-      if aSize > 0 then begin
-      	Result := fpWrite(FHandle, aData^, aSize);
-      end;
+      Result := fpWrite(FHandle, aData, aSize);
 
       fpClose(FHandle);
 
@@ -1135,6 +991,23 @@ DataSize: UInt32;
   begin
     DataSize := Length(aData);
     Result := gemWriteFile(aFileName, PByte(@aData[1]), DataSize, aOverWriteExisting);
+  end;
+
+function gemAppendFile(const aFileName: String; const aData: Pointer; const aSize: UInt32): Int32;
+var
+FHandle: cint;
+  begin
+
+    Result := 0;
+
+    FHandle := fpOpen(aFileName, O_RDWR or O_APPEND);
+    if FHandle = -1 then begin
+      Exit(-1);
+    end;
+
+    Result := fpWrite(FHandle, aData, aSize);
+    fpClose(FHandle);
+
   end;
 
 function gemDeleteFileOverWrite(const aFileName: String): Int32;
@@ -1993,6 +1866,96 @@ RealSize: Integer;
     System.Move(aData^, Result^, RealSize);
   end;
 
+function gemReadLnYesNo(const aDefault: Integer = -1): Boolean;
+// aDefault specifies if y or n should be the default answer
+// 0 = n
+// 1 = y
+// -1 or anything else = no default
+var
+ReadStr: String;
+OpStr: String;
+  begin
+    Result := False;
+
+    case aDefault of
+       0: OpStr := '(y/N):';
+       1: OpStr := '(Y/n):';
+       else OpStr := '(y/n):';
+    end;
+
+    while True do begin
+      Write(OpStr);
+      ReadLn(ReadStr);
+      ReadStr := LowerCase(ReadStr);
+
+      // return default on no input
+      if ReadStr = '' then begin
+        case aDefault of
+          0: Exit(False);
+          1: Exit(True);
+        end;
+      end;
+
+      // check input
+      if (ReadStr = 'y') or (ReadStr = 'yes') then begin
+        Exit(True);
+      end else if (ReadStr = 'n') or (ReadStr = 'no') then begin
+        Exit(False);
+      end;
+
+    end;
+  end;
+
+function gemReadLnRange(const aLow, aHigh: Integer; const aUseDefault: Boolean = False; const aDefault: Integer = 0): Integer;
+// match input to a range of numbers from aLow to aHigh
+var
+ReadStr: String;
+CheckVal: Integer;
+OpStr: String;
+UsingDefault: Boolean;
+  begin
+    Result := aLow;
+
+    UsingDefault := False;
+    if aUseDefault = True then begin
+      if (aDefault >= aLow) and (aDefault <= aHigh) then begin
+        UsingDefault := True;
+      end;
+    end;
+
+    OpStr := '(' + aLow.ToString() + '-' + aHigh.ToString();
+    if UsingDefault = True then begin
+      OpStr := OpStr + ', default=' + aDefault.ToString();
+    end;
+
+    OpStr := OpStr + '):';
+
+    while True do begin
+      Write(OpStr);
+      ReadLn(ReadStr);
+
+      if ReadStr = '' then begin
+        if UsingDefault = True then begin
+          Write(aDefault);
+          Exit(aDefault);
+        end;
+      end;
+
+      if gemStrIsInt(ReadStr) = False then begin
+        WriteLn('Please enter a valid number from ' + aLow.ToString() + ' to ' + aHigh.ToString());
+        Continue;
+      end else begin
+        CheckVal := ReadStr.ToInteger();
+      end;
+
+      if (CheckVal >= aLow) and (CheckVal <= aHigh) then begin
+        Exit(CheckVal);
+      end else begin
+        WriteLn('Please enter a valid number from ' + aLow.ToString() + ' to ' + aHigh.ToString());
+      end;
+
+    end;
+  end;
 
 function gemPaethPredictorByte(const A, B, C: Byte): Byte;
 var
@@ -2023,222 +1986,6 @@ Ret: Integer;
   	while Ret < 0 do Inc(Ret, 256);
     while Ret > 255 do Dec(Ret, 256);
     Exit(Byte(Ret));
-  end;
-
-function gemMonthLength(const aMonth: Cardinal; aYear: Cardinal = 0): Cardinal;
-	begin
-
-    if aYear = 0 then aYear := CurrentYear();
-
-    case aMonth of
-      1: Exit(31);
-      2:
-      	begin
-        	if aYear mod 4 = 0 then begin
-            Exit(29);
-          end else begin
-            Exit(28);
-          end;
-        end;
-
-      3: Exit(31);
-      4: Exit(30);
-      5: Exit(31);
-      6: Exit(30);
-      7: Exit(31);
-      8: Exit(31);
-      9: Exit(30);
-      10:Exit(31);
-      11:Exit(30);
-      12:Exit(31);
-      else Exit(0);
-
-    end;
-  end;
-
-function gemMonthLength(const aMonth: String; aYear: Cardinal = 0): Cardinal;
-	begin
-    if aYear = 0 then aYear := CurrentYear();
-
-  	if CompareText(aMonth, 'JAN') <> 0 then begin
-    	Exit(31);
-    end else if CompareText(aMonth, 'FEB') <> 0 then begin
-      if aYear mod 4 = 0 then begin
-        Exit(29);
-      end else begin
-        Exit(28);
-      end;
-    end else if CompareText(aMonth, 'MAR') <> 0 then begin
-      Exit(31);
-    end else if CompareText(aMonth, 'APR') <> 0 then begin
-      Exit(30);
-    end else if CompareText(aMonth, 'MAY') <> 0 then begin
-      Exit(31);
-    end else if CompareText(aMonth, 'JUN') <> 0 then begin
-      Exit(30);
-    end else if CompareText(aMonth, 'JUL') <> 0 then begin
-      Exit(31);
-    end else if CompareText(aMonth, 'AUG') <> 0 then begin
-      Exit(31);
-    end else if CompareText(aMonth, 'SEP') <> 0 then begin
-      Exit(30);
-    end else if CompareText(aMonth, 'OCT') <> 0 then begin
-      Exit(31);
-    end else if CompareText(aMonth, 'NOV') <> 0 then begin
-      Exit(30);
-    end else if CompareText(aMonth, 'DEC') <> 0 then begin
-      Exit(31);
-    end else begin
-      Exit(0);
-    end;
-  end;
-
-function gemYearLength(const aYear: Cardinal): Cardinal;
-	begin
-    if aYear mod 4 = 0 then Exit(366) else Exit(365);
-  end;
-
-function gemOrdinalDate(const aYear, aMonth, aDay: Cardinal): Cardinal;
-var
-I: Integer;
-	begin
-    Result := 0;
-
-    if (aMonth = 0) or (aMonth > 12) then Exit(0);
-    if (aDay = 0) or (aDay > gemMonthLength(aMonth, aYear)) then Exit(0);
-
-    for I := 1 to aMonth - 1 do begin
-    	Result := Result + gemMonthLength(I);
-    end;
-
-    Result := Result + aDay;
-
-  end;
-
-procedure gemSleep(const amilliseconds: UInt64);
-var
-m,s: UInt64;
-	begin
-  	m := amilliseconds;
-    s := 0;
-    while m >= 1000 do begin
-      s := s + 1;
-      m := m - 1000;
-    end;
-
-    RequiredTime.tv_sec := s;
-    RequiredTime.tv_nsec := m * 1000000;
-    FillByte(RemainingTime, sizeof(TTimespec), 0);
-    repeat
-      fpNanoSleep(@RequiredTime, @RemainingTime);
-    until (RemainingTime.tv_nsec = 0) and (RemainingTime.tv_sec = 0);
-
-  end;
-
-procedure gemUSleep(const amicroseconds: UInt64);
-var
-u,s: UInt64;
-	begin
-    u := amicroseconds;
-		s := 0;
-    while u >= 1000000 do begin
-      s := s + 1;
-      u := u - 1000000;
-    end;
-
-    RequiredTime.tv_sec := s;
-    RequiredTime.tv_nsec := u * 100;
-    FillByte(RemainingTime, sizeof(TTimespec), 0);
-    repeat
-      fpNanoSleep(@RequiredTime, @RemainingTime);
-    until (RemainingTime.tv_nsec = 0) and (RemainingTime.tv_sec = 0);
-  end;
-
-procedure gemNSleep(const ananoseconds: UInt64);
-var
-n,s: UInt64;
-	begin
-    n := ananoseconds;
-		s := 0;
-    while n >= 1000000000 do begin
-      s := s + 1;
-      n := n - 1000000000;
-    end;
-
-    RequiredTime.tv_sec := s;
-    RequiredTime.tv_nsec := n;
-    FillByte(RemainingTime, sizeof(TTimespec), 0);
-    repeat
-      fpNanoSleep(@RequiredTime, @RemainingTime);
-    until (RemainingTime.tv_nsec = 0) and (RemainingTime.tv_sec = 0);
-  end;
-
-function gemGetCPUTime(): TTimeSpec;
-	begin
-  	clock_gettime(CLOCK_MONOTONIC_RAW, @Result);
-  end;
-
-
-function gemGetProcessTime(): TTimeSpec;
-	begin
-  	clock_gettime(CLOCK_THREAD_CPUTIME_ID, @Result);
-  end;
-
-procedure gemResetProcessTime();
-	begin
-    FillByte(RequiredTime, sizeof(TTimeSpec), 0);
-    clock_settime(CLOCK_THREAD_CPUTIME_ID, @RequiredTime);
-  end;
-
-function gemTStoSecs(const atimespec: TTimeSpec): Double;
-	begin
-    Exit(atimespec.tv_sec + (atimespec.tv_nsec * 1e-9));
-  end;
-
-procedure gemSleepUntil(const atime: TTimeSpec);
-var
-UseTime: TTimeSpec;
-  begin
-  	RequiredTime := gemGetCPUTime();
-    UseTime.tv_sec := atime.tv_sec - RequiredTime.tv_sec;
-    UseTime.tv_nsec := atime.tv_nsec - RequiredTime.tv_nsec;
-
-    while UseTime.tv_nsec < 0 do begin
-      UseTime.tv_nsec := UseTime.tv_nsec + 1000000000;
-      UseTime.tv_sec := UseTime.tv_sec - 1;
-    end;
-
-    if (UseTime.tv_sec < 0) or (UseTime.tv_nsec < 0) then Exit();
-
-    repeat
-    	fpNanoSleep(@UseTime, @RemainingTime);
-    until (RemainingTime.tv_sec = 0) and (RemainingTime.tv_nsec = 0);
-
-  end;
-
-procedure gemSleepUntil(const atime: Double);
-var
-UseTime: TTimeSpec;
-Rem: Double;
-n,s: Int64;
-  begin
-    s := trunc(atime);
-    Rem := atime - s;
-    n := trunc(Rem * 1000000000);
-  	RequiredTime := gemGetCPUTime();
-    UseTime.tv_sec := s - RequiredTime.tv_sec;
-    UseTime.tv_nsec := n - RequiredTime.tv_nsec;
-
-    while UseTime.tv_nsec < 0 do begin
-      UseTime.tv_nsec := UseTime.tv_nsec + 1000000000;
-      UseTime.tv_sec := UseTime.tv_sec - 1;
-    end;
-
-    if (UseTime.tv_sec < 0) or (UseTime.tv_nsec < 0) then Exit();
-
-    repeat
-    	fpNanoSleep(@UseTime, @RemainingTime);
-    until (RemainingTime.tv_sec = 0) and (RemainingTime.tv_nsec = 0);
   end;
 
 operator := (const A: specialize TArray<String>): String;
