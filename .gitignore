@@ -1,6 +1,8 @@
 __history/
 __recovery/
 backup/
+TextShaping4Delphi-main/
 glad_gl.pas
 glfw.pas
 gemmain.pas
+openal.pas
