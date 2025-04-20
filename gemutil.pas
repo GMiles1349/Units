@@ -6,15 +6,7 @@ unit GEMUtil;
   {$modeswitch TYPEHELPERS}
 {$endif}
 
-{$ifopt D+}
-	{$OPTIMIZATION OFF}
-	{$INLINE OFF}
-{$else}
-  {$OPTIMIZATION ON}
-  {$OPTIMIZATION FASTMATH}
-  {$OPTIMIZATION REGVAR}
-	{$INLINE ON}
-{$endif}
+{$i gemoptimizations.Inc}
 
 interface
 
@@ -155,6 +147,7 @@ type
   function gemRemoveFileExtension(const aFileName: String): String;
   function gemReplaceFileExtension(const aFileName, aNewExtension: String): String;
   function gemFileSize(const aFileName: String): Int64;
+  function gemExtractFileName(const aFilePath: String; const aTrimExtension: Boolean): String;
 
   (* String Functions *)
   function gemCharsToString(const aChars: Array of Char): String;
@@ -180,8 +173,8 @@ type
   function gemCopyMemory(var aData: Pointer; const aDataSize: Integer): Pointer;
 
   (* Console / Terminal *)
-  function gemReadLnYesNo(const aDefault: Integer = -1): Boolean;
-  function gemReadLnRange(const aLow, aHigh: Integer; const aUseDefault: Boolean = False; const aDefault: Integer = 0): Integer;
+  function gemPromptYesNo(const aPrompt: String; const aDefault: Integer = -1): Boolean;
+  function gemPromptRange(const aPrompt: String; const aLow, aHigh: Integer; const aUseDefault: Boolean = False; const aDefault: Integer = 0): Integer;
 
   (* Misc / Math *)
   function gemPaethPredictorByte(const A, B, C: Byte): Byte;
@@ -1395,6 +1388,28 @@ fstat: stat;
     Exit(fstat.st_size);
   end;
 
+function gemExtractFileName(const aFilePath: String; const aTrimExtension: Boolean): String;
+var
+SlashPos, DotPos: Integer;
+  begin
+    // find last occurance of / or \
+    SlashPos := High(aFilePath);
+    DotPos := SlashPos;
+    while SlashPos >= 1 do begin
+      if (aFilePath[SlashPos] = '/') or (aFilePath[SlashPos] = '\') then break;
+      Dec(SlashPos);
+    end;
+
+    if aTrimExtension then begin
+      while DotPos > 1 do begin
+        if aFilePath[DotPos] = '.' then break;
+        Dec(DotPos);
+      end;
+    end;
+
+    Result := aFilePath[SlashPos + 1 .. DotPos - 1];
+  end;
+
 function gemCharsToString(const aChars: Array of Char): String;
 // turn array of char into string
 // check for null terminator, do not include
@@ -1760,6 +1775,8 @@ I,R: Integer;
 PLen: Integer;
 Start: Integer;
 	begin
+    if Length(aSource) = 0 then Exit(aSource);
+
     Initialize(Result);
     PLen := Length(aPattern);
     Start := High(aSource) - (PLen - 1);
@@ -1767,6 +1784,8 @@ Start: Integer;
     while Pos(aPattern, aSource, Start) = Start do begin
       Start := Start - PLen;
     end;
+
+    if Start <= 0 then Exit(aSource);
 
     Result := aSource[1..Start];
   end;
@@ -1866,7 +1885,7 @@ RealSize: Integer;
     System.Move(aData^, Result^, RealSize);
   end;
 
-function gemReadLnYesNo(const aDefault: Integer = -1): Boolean;
+function gemPromptYesNo(const aPrompt: String; const aDefault: Integer = -1): Boolean;
 // aDefault specifies if y or n should be the default answer
 // 0 = n
 // 1 = y
@@ -1906,7 +1925,7 @@ OpStr: String;
     end;
   end;
 
-function gemReadLnRange(const aLow, aHigh: Integer; const aUseDefault: Boolean = False; const aDefault: Integer = 0): Integer;
+function gemPromptRange(const aPrompt: String; const aLow, aHigh: Integer; const aUseDefault: Boolean = False; const aDefault: Integer = 0): Integer;
 // match input to a range of numbers from aLow to aHigh
 var
 ReadStr: String;

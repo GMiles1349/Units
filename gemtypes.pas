@@ -1,19 +1,12 @@
 unit GEMTypes;
 
 {$ifdef FPC}
-	{$mode ObjFPC}{$H+}
+	{$mode objFPC}{$H+}
 	{$modeswitch ADVANCEDRECORDS}
 	{$modeswitch AUTODEREF}
-	{$INLINE ON}
-	{$MACRO ON}
-
-	{$IFOPT D+}
-		{$DEFINE DEBUG_INLINE := }
-	{$ELSE}
-		{$DEFINE DEBUG_INLINE := inline;}
-	{$ENDIF}
-
 {$endif}
+
+{$i gemoptimizations.Inc}
 
 interface
 
@@ -44,7 +37,7 @@ uses
 
   type
     PGEMColorF = ^TGEMColorF;
-    TGEMColorF =  record
+    TGEMColorF = packed record
     public
       Red,Green,Blue,Alpha: Single;
       function Inverse(): TGEMColorf;
@@ -108,14 +101,16 @@ uses
       procedure SetTop(ATop: Single);
       procedure SetBottom(ABottom: Single);
       procedure SetTopLeft(ALeft, ATop: Single);
+      procedure SetTopRight(ARight, ATop: Single);
       procedure SetBottomRight(ARight, ABottom: Single);
+      procedure SetBottomLeft(ALeft, ABottom: Single);
       procedure SetSize(AWidth,AHeight: Single; AFrom: Integer = 0);
       procedure SetWidth(AWidth: Single; AFrom: Integer = 0);
       procedure SetHeight(AHeight: Single; AFrom: Integer = 0);
       procedure Grow(AIncWidth,AIncHeight: Single);
       procedure Stretch(APerWidth,APerHeight: Single);
       procedure FitInRect(ARect: TGEMRectI);
-      procedure Translate(AX,AY,AZ: Single);
+      procedure Translate(AX: Single = 0; AY: Single = 0; AZ: Single = 0);
 
       function RandomSubRect(): TGEMRectI;
   end;
@@ -149,6 +144,7 @@ uses
       {$endif}
 
       procedure Update(AFrom: Integer);
+      procedure SetCenter(AX: Single = 0; AY: Single = 0; AZ: Single = 0);
       procedure SetX(AX: Single);
       procedure SetY(AY: Single);
       procedure SetZ(AZ: Single);
@@ -157,13 +153,15 @@ uses
       procedure SetTop(ATop: Single);
       procedure SetBottom(ABottom: Single);
       procedure SetTopLeft(ALeft,ATop: Single);
+      procedure SetTopRight(ARight,ATop: Single);
+      procedure SetBottomLeft(ALeft,ABottom: Single);
       procedure SetBottomRight(ARight,ABottom: Single);
       procedure SetSize(AWidth,AHeight: Single; AFrom: Integer = 0);
       procedure Grow(AIncWidth,AIncHeight: Single);
       procedure Stretch(APerWidth,APerHeight: Single);
       procedure SetWidth(AWidth: Single; AFrom: Integer = 0);
       procedure SetHeight(AHeight: Single; AFrom: Integer = 0);
-      procedure Translate(AX,AY: Single);
+      procedure Translate(AX: Single = 0; AY: Single = 0; AZ: Single = 0);
 
       function RandomSubRect(): TGEMRectF;
   end;
@@ -254,7 +252,7 @@ uses
   {$A4}
   type
     PGEMVec4 = ^TGEMVec4;
-    TGEMVec4 =  record
+    TGEMVec4 =  packed record
     X,Y,Z,W: Single;
   end;
   {$A8}
@@ -262,12 +260,12 @@ uses
 
   type
     PGEMVertex = ^TGEMVertex;
-    TGEMVertex =  record
+    TGEMVertex = packed record
     public
       Vector: TGEMVec3;
       Color: TGEMColorF;
-      TexCoord: TGEMVec3;
-      Normal: TGEMVec3;
+      TexCoord: TGEMVec2;
+      Normal: TGEMVec4;
   end;
 
 {(*///////////////////////////////////////////////////////////////////////////*)
@@ -285,14 +283,14 @@ uses
       	M: Array [0..3, 0..3] of Single;
 
         // getters
-        function GetVal(const A,B: Cardinal): Single; DEBUG_INLINE
-      	function GetRow(const Index: Cardinal): TGEMVec4; DEBUG_INLINE
-        function GetColumn(const Index: Cardinal): TGEMVec4; DEBUG_INLINE
+        function GetVal(const A,B: Cardinal): Single;
+      	function GetRow(const Index: Cardinal): TGEMVec4;
+        function GetColumn(const Index: Cardinal): TGEMVec4;
 
         // setters
-        procedure SetVal(const A: Cardinal; const B: Cardinal; const aValue: Single); DEBUG_INLINE
-        procedure SetRow(const Index: Cardinal; const aValues: TGEMVec4); DEBUG_INLINE
-        procedure SetColumn(const Index: Cardinal; const aValues: TGEMVec4); DEBUG_INLINE
+        procedure SetVal(const A: Cardinal; const B: Cardinal; const aValue: Single);
+        procedure SetRow(const Index: Cardinal; const aValues: TGEMVec4);
+        procedure SetColumn(const Index: Cardinal; const aValues: TGEMVec4);
 
     	public
 
@@ -738,13 +736,15 @@ operator *(A, B: TGEMColorI): TGEMColorI;
   function RectI(ARect: TGEMRectF): TGEMRectI; overload;
   function RectIWH(ALeft,ATop,AWidth,AHeight: Single): TGEMRectI;
 
-  function RectF(ALeft,ATop,ARight,ABottom: Single): TGEMRectF; overload;
-  function RectF(ACenter: TGEMVec3; AWidth,AHeight: Single): TGEMRectF; overload;
+  function RectF(ALeft,ATop,ARight,ABottom: Single; aZ: Single = 0): TGEMRectF; overload;
+  function RectF(ACenter: TGEMVec3; AWidth,AHeight: Single; aZ: Single = 0): TGEMRectF; overload;
   function RectF(ARect: TGEMRectI): TGEMRectF; overload;
-  function RectFWH(ALeft,ATop,AWidth,AHeight: Single): TGEMRectF;
+  function RectFWH(ALeft,ATop,AWidth,AHeight: Single; aZ: Single = 0): TGEMRectF;
 
   function ScaleRect(ARect: TGEMRectF; AXRatio, AYRatio: Single): TGEMRectF;
   function FindRectOverlap(A,B: TGEMRectF): TGEMRectF;
+  function CanFit(A,B: TGEMRectF): Boolean;
+  function FitRectInRect(const A, B: TGEMRectF): TGEMRectF;
 
   {* Vectors *}
   function Vec2(AX: Single = 0; AY: Single = 0): TGEMVec2; overload;
@@ -764,9 +764,10 @@ operator *(A, B: TGEMColorI): TGEMColorI;
   function Up(ADirectionVector: TGEMVec3; ARightVector: TGEMVec3): TGEMVec3;
   function SignedDistance(AVector1, AVector2: TGEMVec3): Single;
   procedure ScaleCoord(var AVectors: specialize TArray<TGEMVec3>;  AWidth: Single = 0; AHeight: Single = 0; ADepth: Single = 0);
-  procedure ScaleNDC(var AVectors: specialize TArray<TGEMVec3>;  AWidth: Single = 0; AHeight: Single = 0; ADepth: Single = 0);
+  procedure ScaleNDC(var AVectors: Array of TGEMVec3;  AWidth: Single = 0; AHeight: Single = 0; ADepth: Single = 0);
   procedure FlipVerticle(var AVectors: specialize TArray<TGEMVec3>);
   procedure FlipHorizontal(var AVectors: specialize TArray<TGEMVec3>);
+  function NDC(const AVector: TGEMVec3; const AWidth, AHeight, ADepth: Integer): TGEMVec3;
 
   {* Matrices *}
   function MatrixAdjoint(AMatrix: TGEMMat4): TGEMMat4; inline;
@@ -784,14 +785,15 @@ operator *(A, B: TGEMColorI): TGEMColorI;
   function GetAngle(AStart, AEnd: TGEMVec2): Single;
   function InRect(AVec: TGEMVec3; ARect: TGEMRectF): Boolean;
   function RectCollision(ARect1,ARect2: TGEMRectF): Boolean;
-  function InTriangle(const ACheckPoint: TGEMVec3; const T1,T2,T3: TGEMVec3): Boolean; DEBUG_INLINE
+  function InTriangle(const ACheckPoint: TGEMVec3; const T1,T2,T3: TGEMVec3): Boolean;
   function CircleRectCollision(ACircle: TGEMVec3; ARectangle: TGEMRectF): Boolean;
+  function CircleCollision(ACirc1, ACirc2: TGEMVec3; ARadius1, ARadius2: Float): Boolean;
   function LineIntersect(Line1Start, Line1End, Line2Start, LIne2End: TGEMVec3; out AIntersection: TGEMVec3): Boolean;
   function LineRectIntersect(LineStart, LineEnd: TGEMVec3; ARect: TGEMRectF; out AIntersection: specialize TArray<TGEMVec3>): Boolean;
   function LinePlaneIntersect(L1,L2,PP,PN: TGEMVec3; out AIntersect: TGEMVec3): Boolean;
   function CylinderCollision(const ACylinder1, ACylinder2: TGEMCylinder): Boolean;
   function DetInternal(a1, a2, a3, b1, b2, b3, c1, c2, c3: Single): Single;
-  function EdgeFunction(constref V0, V1, P: TGEMVec2): Single; DEBUG_INLINE
+  function EdgeFunction(constref V0, V1, P: TGEMVec2): Single;
 
   {* Transformations *}
   function TransformToView(out AVector: TGEMVec3; ALeft, ATop, ARight, ABottom, ANear, AFar: Single): TGEMVec3;
@@ -817,8 +819,8 @@ const
   GEM_black: TGEMColorI =         (Red: 0; Green: 0; Blue: 0; Alpha: 255);
 
   GEM_grey: TGEMColorI =          (Red: 128; Green: 128; Blue: 128; Alpha: 255);
-  GEM_light_grey: TGEMColorI =    (Red: 75; Green: 75; Blue: 75; Alpha: 255);
-  GEM_dark_grey: TGEMColorI =     (Red: 225; Green: 225; Blue: 225; Alpha: 255);
+  GEM_light_grey: TGEMColorI =    (Red: 191; Green: 191; Blue: 191; Alpha: 255);
+  GEM_dark_grey: TGEMColorI =     (Red: 75; Green: 75; Blue: 75; Alpha: 255);
 
   GEM_red: TGEMColorI =           (Red: 255; Green: 0; Blue: 0; Alpha: 255);
   GEM_ligh_red: TGEMColorI =      (Red: 255; Green: 125; Blue: 128; Alpha: 255);
@@ -1023,7 +1025,7 @@ function RectIWH(ALeft,ATop,AWidth,AHeight: single): TGEMRectI;
     Result.fY := Trunc(ATop + (AHeight / 2));
   end;
 
-function RectF(ALeft,ATop,ARight,ABottom: Single): TGEMRectF;
+function RectF(ALeft,ATop,ARight,ABottom: Single; aZ: Single = 0): TGEMRectF;
   begin
     Result.fLeft := ALeft;
     Result.fTop := ATop;
@@ -1033,9 +1035,10 @@ function RectF(ALeft,ATop,ARight,ABottom: Single): TGEMRectF;
     Result.fHeight := ABottom - ATop;
     Result.fX := ALeft + (Result.fWidth / 2);
     Result.fY := ATop + (Result.fHeight / 2);
+    Result.fZ := aZ;
   end;
 
- function RectF(ACenter: TGEMVec3; AWidth,AHeight: Single): TGEMRectF;
+ function RectF(ACenter: TGEMVec3; AWidth,AHeight: Single; aZ: Single = 0): TGEMRectF;
   begin
     Result.fWidth := (AWidth);
     Result.fHeight := (AHeight);
@@ -1047,7 +1050,7 @@ function RectF(ARect: TGEMRectI): TGEMRectF;
 
   end;
 
-function RectFWH(ALeft,ATop,AWidth,AHeight: Single): TGEMRectF;
+function RectFWH(ALeft,ATop,AWidth,AHeight: Single; aZ: Single = 0): TGEMRectF;
   begin
     Result.fLeft := ALeft;
     Result.fTop := ATop;
@@ -1057,7 +1060,7 @@ function RectFWH(ALeft,ATop,AWidth,AHeight: Single): TGEMRectF;
     Result.fBottom := ATop + (AHeight);
     Result.fX := ALeft + (AWidth / 2);
     Result.fY := ATop + (AHeight / 2);
-    Result.fZ := 0;
+    Result.fZ := aZ;
   end;
 
 function ScaleRect(ARect: TGEMRectF; AXRatio, AYRatio: Single): TGEMRectF;
@@ -1083,9 +1086,72 @@ NewLeft, NewRight, NewTop, NewBottom: Single;
     NewBottom := Biggest([A.Bottom, B.Bottom]);
 
     Exit(RectF(NewLeft, NewTop, NewRight, NewBottom));
-
   end;
 
+function CanFit(A,B: TGEMRectF): Boolean;
+  begin
+    if (A.Left >= B.Left) and
+       (A.Top >= B.Top) and
+       (A.Right <= B.Right) and
+       (A.Bottom <= B.Bottom) then begin
+        Exit(True);
+    end else begin
+      Exit(False);
+    end;
+  end;
+
+function FitRectInRect(const A, B: TGEMRectF): TGEMRectF;
+var
+Ratio: Single;
+Aspect: Single;
+NewWidth, NewHeight: Single;
+  begin
+
+    Aspect := B.Width / B.Height;
+
+    if Aspect >= 1 then begin
+
+      if B.Width >= A.Width then begin
+        Ratio := A.Width / B.Width;
+
+        if B.Height * Ratio > A.Height then begin
+          Ratio := A.Height / B.Height;
+        end;
+
+      end else begin
+
+        Ratio := A.Width / B.Width;
+
+        if B.Height * Ratio > A.Height then begin
+          Ratio := A.Height / B.Height;
+        end;
+
+      end;
+
+    end else begin
+
+      if B.Height >= A.Height then begin
+        Ratio := A.Height / B.Height;
+
+        if B.Width * Ratio > A.Width then begin
+          Ratio := A.Width / B.Width;
+        end;
+
+      end else begin
+
+        Ratio := A.Height / B.Height;
+
+        if B.Width * Ratio > A.Width then begin
+          Ratio := A.Width / B.Width;
+        end;
+
+      end;
+
+    end;
+
+    Result.SetSize(B.Width * Ratio, B.Height * Ratio);
+    Result.SetCenter(A.Center);
+  end;
 
 {* Vectors *}
 function Vec2(AX: Single = 0; AY: Single = 0): TGEMVec2;
@@ -1154,6 +1220,9 @@ Len: Single;
     AVec.X := AVec.X / Len;
     AVec.Y := AVec.Y / Len;
     AVec.Z := AVec.Z / Len;
+    if IsNan(AVec.X) then AVec.X := 0;
+    if IsNan(AVec.Y) then AVec.Y := 0;
+    if IsNan(AVec.Z) then AVec.Z := 0;
   end;
 
 procedure Normalize(var AVec: TGEMVec2);
@@ -1163,6 +1232,8 @@ Len: Single;
     Len := VectorLength(AVec);
     AVec.X := AVec.X / Len;
     AVec.Y := AVec.Y / Len;
+    if IsNan(AVec.X) then AVec.X := 0;
+    if IsNan(AVec.Y) then AVec.Y := 0;
   end;
 
 function Direction(APosition: TGEMVec3; ATargeT: TGEMVec3): TGEMVec3;
@@ -1200,7 +1271,7 @@ I: Integer;
 
   end;
 
-procedure ScaleNDC(var AVectors: specialize TArray<TGEMVec3>; AWidth: Single = 0; AHeight: Single = 0; ADepth: Single = 0);
+procedure ScaleNDC(var AVectors: Array of TGEMVec3; AWidth: Single = 0; AHeight: Single = 0; ADepth: Single = 0);
 var
 Len: Integer;
 I: Integer;
@@ -1261,6 +1332,12 @@ I: Integer;
 
   end;
 
+function NDC(const AVector: TGEMVec3; const AWidth, AHeight, ADepth: Integer): TGEMVec3;
+  begin
+    Result.X := -1 + ((AVector.X / AWidth) * 2);
+    Result.Y := -1 + ((AVector.Y / AHeight) * 2);
+    Result.Z := AVector.Z / ADepth;
+  end;
 
 {* Matrices *}
 function MatrixAdjoint(AMatrix: TGEMMat4): TGEMMat4;
@@ -1384,7 +1461,6 @@ function GetAngle(AStart, AEnd: TGEMVec2): Single;
 
 function InRect(AVec: TGEMVec3; ARect: TGEMRectF): Boolean;
   begin
-
     Result := False;
 
     if (Avec.X >= ARect.Left) and
@@ -1393,7 +1469,6 @@ function InRect(AVec: TGEMVec3; ARect: TGEMRectF): Boolean;
       (AVec.Y <= ARect.Bottom) then begin
         Result := True;
     end;
-
   end;
 
 function RectCollision(ARect1,ARect2: TGEMRectF): Boolean;
@@ -1438,9 +1513,7 @@ function CircleRectCollision(ACircle: TGEMVec3; ARectangle: TGEMRectF): Boolean;
 var
 Closest: TGEMVec2;
   begin
-
     result := false;
-
     // first, check if the center of the circle is in the rectangle
     if InRect(ACircle, ARectangle) then begin
       result := true;
@@ -1449,16 +1522,19 @@ Closest: TGEMVec2;
 
     // if not, calculate closest point of rectangle to center of circle
     // if closest point is within Radius distance, we have collision
-
     Closest.X := Max(ARectangle.X1,Min(ACircle.X, ARectangle.X2));
     Closest.Y := Max(ARectangle.Y1,Min(ACircle.Y, ARectangle.Y2));
 
     if Distance(Closest, TGEMVec2(ACircle)) <= ACircle.Z then begin
       Result := true;
     end;
-
   end;
 
+function CircleCollision(ACirc1, ACirc2: TGEMVec3; ARadius1, ARadius2: Float): Boolean;
+  begin
+    Result := False;
+    if VectorLength((Vec2(ACirc1) - Vec2(ACirc2))) <= ARadius1 + ARadius2 then Result := True;
+  end;
 
 function LineIntersect(Line1Start, Line1End, Line2Start, LIne2End: TGEMVec3; out AIntersection: TGEMVec3): Boolean;
 var
@@ -2189,7 +2265,6 @@ class operator TGEMRectI.Initialize(var Dest: TGEMRectI);
 procedure TGEMRectI.Update(AFrom: Integer);
 // AFrom expects a constant value of from_center, from_left, from_top, from_right, from_bottom
   begin
-
     case AFrom of
 
       0: // from_center
@@ -2278,9 +2353,19 @@ procedure TGEMRectI.SetTopLeft(ALeft: Single; ATop: Single);
       Self.SetCenter(ALeft + (Self.Width / 2), ATop + (Self.Height / 2), Self.Z);
   end;
 
+procedure TGEMRectI.SetTopRight(ARight: Single; ATop: Single);
+  begin
+      Self.SetCenter(ARight - (Self.Width / 2), ATop + (Self.Height / 2), Self.Z);
+  end;
+
 procedure TGEMRectI.SetBottomRight(ARight: Single; ABottom: Single);
   begin
     Self.SetCenter(ARight - (Self.Width / 2), ABottom - (Self.Height / 2), Self.Z);
+  end;
+
+procedure TGEMRectI.SetBottomLeft(ALeft: Single; ABottom: Single);
+  begin
+    Self.SetCenter(ALeft + (Self.Width / 2), ABottom - (Self.Height / 2), Self.Z);
   end;
 
 procedure TGEMRectI.SetSize(AWidth,AHeight: Single; AFrom: Integer = 0);
@@ -2581,6 +2666,14 @@ procedure TGEMRectF.Update(AFrom: Integer);
 
   end;
 
+procedure TGEMRectF.SetCenter(AX: Single = 0; AY: Single = 0; AZ: Single = 0);
+  begin
+    Self.fX := AX;
+    Self.fY := AY;
+    Self.fZ := AZ;
+    Self.Update(from_center);
+  end;
+
 procedure TGEMRectF.SetX(AX: Single);
   begin
     Self.fX := AX;
@@ -2626,6 +2719,16 @@ procedure TGEMRectF.SetBottom(ABottom: Single);
 procedure TGEMRectF.SetTopLeft(ALeft: Single; ATop: Single);
   begin
     Self.SetCenter(Vec3(ALeft + (Self.Width / 2), ATop + (Self.Height / 2), Self.Z));
+  end;
+
+procedure TGEMRectF.SetTopRight(ARight: Single; ATop: Single);
+  begin
+    Self.SetCenter(Vec3(ARight - (Self.Width / 2), ATop + (Self.Height / 2), Self.Z));
+  end;
+
+procedure TGEMRectF.SetBottomLeft(ALeft: Single; ABottom: Single);
+  begin
+    Self.SetCenter(Vec3(ALeft + (Self.Width / 2), ABottom - (Self.Height / 2), Self.Z));
   end;
 
 procedure TGEMRectF.SetBottomRight(ARight: Single; ABottom: Single);
@@ -2682,10 +2785,11 @@ procedure TGEMRectF.Stretch(APerWidth,APerHeight: Single);
     Self.Update(from_center);
   end;
 
-procedure TGEMRectF.Translate(AX,AY: Single);
+procedure TGEMRectF.Translate(AX,AY,AZ: Single);
   begin
     IncF(Self.fX, AX);
     IncF(Self.fY, AY);
+    IncF(Self.fZ, AZ);
     Self.Update(from_center);
   end;
 
@@ -2724,7 +2828,7 @@ operator +(A: TGEMRectF; B: TGEMVec3): TGEMRectF;
 {$endif}
   begin
     Result := A;
-    Result.Translate(B.X, B.Y);
+    Result.Translate(B.X, B.Y, B.Z);
   end;
 
 {$ifndef FPC}
@@ -2734,7 +2838,7 @@ operator -(A: TGEMRectF; B: TGEMVec3): TGEMRectF;
 {$endif}
   begin
     Result := A;
-    Result.Translate(-B.X, -B.Y);
+    Result.Translate(-B.X, -B.Y, B.Z);
   end;
 
 function TGEMRectFHelper.GetCenter: TGEMVec3;
@@ -3506,9 +3610,9 @@ procedure TGEMMat4.MakeTranslation(X: Single = 0; Y: Single = 0; Z: Single = 0);
 procedure TGEMMat4.MakeTranslation(AValues: TGEMVec3);
   begin
     Self.SetIdentity();
-    Self.AW := AValues.X;
-    Self.BW := AValues.Y;
-    Self.CW := AValues.Z;
+    Self.M[3,0] := AValues.X;
+    Self.M[3,1] := AValues.Y;
+    Self.M[3,2] := AValues.Z;
   end;
 
 procedure TGEMMat4.Translate(X: Single = 0; Y: Single = 0; Z: Single = 0);
@@ -3616,11 +3720,11 @@ procedure TGEMMat4.Ortho(ALeft,ARight,ABottom,ATop,ANear,AFar: Single);
   begin
     Self.SetIdentity();
     Self.M[0,0] := 2 / (ARight - ALeft);
-    Self.M[1,1] := 2 / (ATop - ABottom);
-    Self.M[2,2] := -2 / (ANear - AFar);
+    Self.M[1,1] := 2 / (ABottom - ATop);
+    Self.M[2,2] := -2 / (AFar - ANear);
     Self.M[3,0] := ((ALeft + ARight) / (ALeft - ARight));
-    Self.M[3,1] := ((ATop + ABottom) / (ABottom - ATop));
-    Self.M[3,2] := ((ANear + AFar) / (ANear - AFar));
+    Self.M[3,1] := ((ATop + ABottom) / (ATop - ABottom));
+    Self.M[3,2] := ((ANear + AFar) / (AFar - ANear));
   end;
 
 procedure TGEMMat4.LookAt(AFrom,ATo,AUp: TGEMVec3; const aFlipY: Boolean = False);

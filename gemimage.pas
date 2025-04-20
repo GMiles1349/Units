@@ -1,6 +1,8 @@
 unit gemimage;
 
-{$mode ObjFPC}{$H+}
+{$mode Delphi}{$H+}
+
+{$i gemoptimizations.Inc}
 
 interface
 
@@ -33,16 +35,16 @@ type
       property Data: Pointer read GetData;
       property DataSize: Integer read fDataSize;
 
-      constructor Create(const aWidth: Cardinal = 0; const aHeight: Cardinal = 0);
-      constructor Create(const aFileName: String);
-      constructor Create(const aData: Pointer; const aWidth, aHeight, aComponents: Cardinal);
+      constructor Create(const aWidth: Cardinal = 0; const aHeight: Cardinal = 0); overload;
+      constructor Create(const aFileName: String); overload;
+      constructor Create(const aData: Pointer; const aWidth, aHeight, aComponents: Cardinal); overload;
 
       destructor Destroy(); override;
 
       procedure LoadFromFile(const aFileName: String);
       procedure LoadFromMemory(const aData: Pointer; const aWidth, aHeight, aComponents: Cardinal);
-      procedure CopyFrom(var aImage: TGEMImage);
-      procedure CopyFrom(var aImage: TGEMImage; aSrcRect, aDestRect: TGEMRectI);
+      procedure CopyFrom(aImage: TGEMImage); overload;
+      procedure CopyFrom(aImage: TGEMImage; aSrcRect, aDestRect: TGEMRectI); overload;
 
       procedure SaveToFile(const aFileName: String);
 
@@ -56,6 +58,8 @@ type
       procedure SetHeight(const aHeight: Cardinal);
       procedure SetSize(const aWidth, aHeight: Cardinal);
       procedure Stretch(const aWidth, aHeight: Cardinal);
+      procedure SetAlpha(const aAlpha: Byte; const aIgnoreZeroAlpha: Boolean = True); overload;
+      procedure SetAlpha(const aAlpha: Single; const aIgnoreZeroAlpha: Boolean = True); overload;
 
   end;
 
@@ -217,13 +221,13 @@ I: Integer;
     Ptr := nil;
   end;
 
-procedure TGEMImage.CopyFrom(var aImage: TGEMImage);
+procedure TGEMImage.CopyFrom(aImage: TGEMImage);
   begin
     Self.Update(aImage.Width, aImage.Height);
     Move(aImage.fPixel[0], Self.fPixel[0], Self.fDataSize);
   end;
 
-procedure TGEMImage.CopyFrom(var aImage: TGEMImage; aSrcRect, aDestRect: TGEMRectI);
+procedure TGEMImage.CopyFrom(aImage: TGEMImage; aSrcRect, aDestRect: TGEMRectI);
   begin
 
   end;
@@ -515,6 +519,37 @@ SrcPosX, SrcPosY, DestPosX, DestPosY: Single;
       SrcPosX := DestPosX * SrcRatioX;
     end;
 
+  end;
+
+procedure TGEMImage.SetAlpha(const aAlpha: Byte; const aIgnoreZeroAlpha: Boolean = True); overload;
+var
+I: Integer;
+  begin
+    if aIgnoreZeroAlpha then begin
+      for I := 0 to Self.fPixelCount - 1 do begin
+        if Self.fPixel[I].Alpha <> 0 then begin;
+          Self.fPixel[I].Alpha := aAlpha;
+        end;
+      end;
+    end else begin
+      for I := 0 to Self.fPixelCount - 1 do begin
+        Self.fPixel[I].Alpha := aAlpha;
+      end;
+    end;
+  end;
+
+procedure TGEMImage.SetAlpha(const aAlpha: Single; const aIgnoreZeroAlpha: Boolean = True); overload;
+var
+AVal: Single;
+  begin
+    AVal := aAlpha;
+    if AVal < 0 then begin
+      AVal := 0;
+    end else if AVal > 1 then begin
+      AVal := 1;
+    end;
+
+    Self.SetAlpha(Byte(trunc(AVal * 255)), aIgnoreZeroAlpha);
   end;
 
 end.

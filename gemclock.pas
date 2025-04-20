@@ -1,8 +1,11 @@
 unit GEMClock;
 
-{$ifdef FPC}
-	{$mode ObjFPC}{$H+}
-	{$modeswitch ADVANCEDRECORDS}
+{$mode Delphi}{$H+}
+{$modeswitch ADVANCEDRECORDS}
+
+{ auto inline in release build }
+{$ifopt D+}
+  {$optimization AUTOINLINE}
 {$endif}
 
 interface
@@ -18,10 +21,10 @@ uses
 type
   TTimeSpec = UnixType.timespec;
   TGEMTriggerType = (GEM_trigger_on_time = 0, GEM_trigger_on_interval = 1);
-  TGEMClockEvent = procedure;
+  TGEMClockEventProc = procedure;
 
   TGEMClock = Class;
-  TGEMEvent = Class;
+  TGEMClockEvent = Class;
 
   TGEMDateStruct = record
     private
@@ -73,13 +76,13 @@ type
       fTicks: Int64;
       fExpectedTicks: Int64;
 
-      fEvents: specialize TArray<TGEMEvent>;
+      fEvents: TArray<TGEMClockEvent>;
       fEventCount: Integer;
 
       procedure Init(); register;
       procedure Update(); register;
-      procedure AddEvent(AEvent: TGEMEvent); register;
-      procedure RemoveEvent(AEvent: TGEMEvent); register;
+      procedure AddEvent(AEvent: TGEMClockEvent); register;
+      procedure RemoveEvent(AEvent: TGEMClockEvent); register;
       procedure HandleEvents(); register;
 
       procedure SetCatchUp(Enable: Boolean = True); register;
@@ -112,18 +115,18 @@ type
   end;
 
 
-  TGEMEvent = class
+  TGEMClockEvent = class
     private
       fActive: Boolean;
       fRepeating: Boolean;
       fOwner: TGEMClock;
-      fEventProc: TGEMClockEvent;
+      fEventProc: TGEMClockEventProc;
       fTriggerType: TGEMTriggerType;
       fTriggerTime: Double;
       fNextTriggerTime: Double;
 
       procedure SetRepeating(const Value: Boolean);
-      procedure SetEventProc(const Value: TGEMClockEvent);
+      procedure SetEventProc(const Value: TGEMClockEventProc);
 
       // fTriggerTime is used for TriggerTime and TriggerInterval
       // if trigger type is on time, then setting interval or getting interval will fail or return 0
@@ -139,7 +142,7 @@ type
       property Owner: TGEMClock read fOwner;
       property Active: Boolean read fActive write SetActive;
       property Repeating: Boolean read fRepeating write SetRepeating;
-      property EventProc: TGEMClockEvent read fEventProc write SetEventProc;
+      property EventProc: TGEMClockEventProc read fEventProc write SetEventProc;
       property TriggerType: TGEMTriggerType read fTriggerType;
       property TriggerTime: Double read GetTriggerTime write SetTriggerTime;
       property TriggerInterval: Double read GetTriggerInterval write SetTriggerInterval;
@@ -162,19 +165,19 @@ type
   function gemOrdinalDate(const aYear, aMonth, aDay: Cardinal): Cardinal;
 
   // sleeping
-  procedure gemSleep(const amilliseconds: UInt64); inline;
-  procedure gemUSleep(const amicroseconds: UInt64); inline;
-  procedure gemNSleep(const ananoseconds: UInt64); inline;
-  procedure gemSleepUntil(const atime: TTimeSpec); inline; overload;
-  procedure gemSleepUntil(const atime: Double); inline; overload;
+  procedure gemSleep(const amilliseconds: UInt64);
+  procedure gemUSleep(const amicroseconds: UInt64);
+  procedure gemNSleep(const ananoseconds: UInt64);
+  procedure gemSleepUntil(const atime: TTimeSpec); overload;
+  procedure gemSleepUntil(const atime: Double); overload;
 
   // time-keeping
-  function gemGetCPUTime(): TTimeSpec; inline; overload;
-  function gemGetProcessTime(): TTimeSpec; inline; overload;
-  procedure gemResetProcessTime(); inline;
+  function gemGetCPUTime(): TTimeSpec; overload;
+  function gemGetProcessTime(): TTimeSpec; overload;
+  procedure gemResetProcessTime();
 
   // time conversion
-  function gemTStoSecs(const atimespec: TTimeSpec): Double; inline;
+  function gemTStoSecs(const atimespec: TTimeSpec): Double;
 
 implementation
 
@@ -294,7 +297,7 @@ constructor TGEMClock.Create(AFPS: Integer = 60);
     Self.SetIntervalInFPS(AFPS);
   end;
 
-procedure TGEMClock.AddEvent(AEvent: TGEMEvent);
+procedure TGEMClock.AddEvent(AEvent: TGEMClockEvent);
 var
 I: Integer;
   begin
@@ -308,7 +311,7 @@ I: Integer;
     Self.fEvents[High(Self.fEvents)] := AEvent;
   end;
 
-procedure TGEMClock.RemoveEvent(AEvent: TGEMEvent);
+procedure TGEMClock.RemoveEvent(AEvent: TGEMClockEvent);
 var
 I: Integer;
 Index: Integer;
@@ -332,7 +335,7 @@ Index: Integer;
 procedure TGEMClock.HandleEvents();
 var
 I: Integer;
-CheckEvent: TGEMEvent;
+CheckEvent: TGEMClockEvent;
   begin
 
     for I := 0 to High(Self.fEvents) do begin
@@ -435,7 +438,7 @@ CalcTicks: Double;
     Self.fElapsedTime := Self.fElapsedTime + Self.fCycleTime;
 
     if Self.fCatchUpEnabled = False then begin
-      Self.fTargetTime := Self.CurrentTime + Self.Interval;
+      Self.fTargetTime := Self.fTargetTime + Self.Interval;
     end else begin
       CalcTicks := (Self.ElapsedTime / Self.Interval);
       CalcTarget := Self.fStartTime + (CalcTicks * Self.Interval);
@@ -499,14 +502,8 @@ procedure TGEMClock.Stop();
   end;
 
 procedure TGEMClock.Wait();
-var
-req, rem: TTimeSpec;
   begin
-
-    req.tv_sec := 0;
-    req.tv_nsec := 10000;
-    while (Self.GetTime() < Self.TargetTime) do begin
-      fpNanoSleep(@req, @rem);
+    while Self.GetTime() < Self.TargetTime do begin
     end;
 
     Self.Update();
@@ -532,16 +529,16 @@ procedure TGEMClock.SetIntervalInFPS(AInterval: Double);
 
 {(*///////////////////////////////////////////////////////////////////////////*)
 --------------------------------------------------------------------------------
-                                   TGEMEvent
+                                   TGEMClockEvent
 --------------------------------------------------------------------------------
 (*///////////////////////////////////////////////////////////////////////////*)}
 
-constructor TGEMEvent.Create;
+constructor TGEMClockEvent.Create;
   begin
 
   end;
 
-constructor TGEMEvent.Create(AOwner: TGEMClock; AActive: Boolean; ATriggerAtTime: Double);
+constructor TGEMClockEvent.Create(AOwner: TGEMClock; AActive: Boolean; ATriggerAtTime: Double);
   begin
     Self.fTriggerType := TGEMTriggerType.GEM_trigger_on_time;
     Self.fTriggerTime := ATriggerAtTime;
@@ -550,7 +547,7 @@ constructor TGEMEvent.Create(AOwner: TGEMClock; AActive: Boolean; ATriggerAtTime
     Self.fOwner.AddEvent(Self);
   end;
 
-constructor TGEMEvent.Create(AOwner: TGEMClock; AActive: Boolean; ATriggerAtInterval: Double; ARepeating: Boolean);
+constructor TGEMClockEvent.Create(AOwner: TGEMClock; AActive: Boolean; ATriggerAtInterval: Double; ARepeating: Boolean);
   begin
     Self.fTriggerType := TGEMTriggerType.GEM_trigger_on_interval;
     Self.fTriggerTime := ATriggerAtInterval;
@@ -560,13 +557,13 @@ constructor TGEMEvent.Create(AOwner: TGEMClock; AActive: Boolean; ATriggerAtInte
     Self.fRepeating := ARepeating;
   end;
 
-destructor TGEMEvent.Destroy;
+destructor TGEMClockEvent.Destroy;
   begin
     Self.RemoveFromOwner();
     inherited;
   end;
 
-procedure TGEMEvent.AssignToOwner(AOwner: TGEMClock; AActive: Boolean = True);
+procedure TGEMClockEvent.AssignToOwner(AOwner: TGEMClock; AActive: Boolean = True);
   begin
     if AOwner = nil then Exit;
 
@@ -579,7 +576,7 @@ procedure TGEMEvent.AssignToOwner(AOwner: TGEMClock; AActive: Boolean = True);
     end;
   end;
 
-procedure TGEMEvent.RemoveFromOwner();
+procedure TGEMClockEvent.RemoveFromOwner();
   begin
     if Self.fOwner <> nil then begin
       Self.fOwner.RemoveEvent(Self);
@@ -587,7 +584,7 @@ procedure TGEMEvent.RemoveFromOwner();
     end;
   end;
 
-function TGEMEvent.GetTriggerInterval: Double;
+function TGEMClockEvent.GetTriggerInterval: Double;
   begin
     if Self.fTriggerType = TGEMTriggerType.GEM_trigger_on_time then begin
       Result := 0;
@@ -596,7 +593,7 @@ function TGEMEvent.GetTriggerInterval: Double;
     end;
   end;
 
-function TGEMEvent.GetTriggerTime: Double;
+function TGEMClockEvent.GetTriggerTime: Double;
   begin
     if Self.fTriggerType = TGEMTriggerType.GEM_trigger_on_interval then begin
       Result := 0;
@@ -605,7 +602,7 @@ function TGEMEvent.GetTriggerTime: Double;
     end;
   end;
 
-procedure TGEMEvent.SetTriggerInterval(const Value: Double);
+procedure TGEMClockEvent.SetTriggerInterval(const Value: Double);
   begin
     if Self.fTriggerType = TGEMTriggerType.GEM_trigger_on_time then Exit;
 
@@ -615,14 +612,14 @@ procedure TGEMEvent.SetTriggerInterval(const Value: Double);
     end;
   end;
 
-procedure TGEMEvent.SetTriggerTime(const Value: Double);
+procedure TGEMClockEvent.SetTriggerTime(const Value: Double);
   begin
     if Self.fTriggerType = TGEMTriggerType.GEM_trigger_on_interval then Exit;
 
     Self.fTriggerTime := Value;
   end;
 
-procedure TGEMEvent.SetActive(const Value: Boolean);
+procedure TGEMClockEvent.SetActive(const Value: Boolean);
   begin
     Self.fActive := Value;
     if Value = True then begin
@@ -639,12 +636,12 @@ procedure TGEMEvent.SetActive(const Value: Boolean);
     end;
   end;
 
-procedure TGEMEvent.SetEventProc(const Value: TGEMClockEvent);
+procedure TGEMClockEvent.SetEventProc(const Value: TGEMClockEventProc);
   begin
     fEventProc := Value;
   end;
 
-procedure TGEMEvent.SetRepeating(const Value: Boolean);
+procedure TGEMClockEvent.SetRepeating(const Value: Boolean);
   begin
     fRepeating := Value;
   end;

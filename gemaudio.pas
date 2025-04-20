@@ -165,6 +165,7 @@ type
       fGain: TALFloat;
       fRelativeGainLow, fRelativeGainHigh, fRelativeGain: TALFloat;
       fGainRange: TALFloat;
+      fPitch: Single;
       fRadius: TALFloat;
       fDirection: TGEMVec3;
       fConeAngle: TALFloat;
@@ -185,6 +186,7 @@ type
       property RelativeGainLow: TALFloat read fRelativeGainLow;
       property RelativeGainHigh: TALFloat read fRelativeGainHigh;
       property RelativeGain: TALFloat read fRelativeGain;
+      property Pitch: Single read fPitch;
       property Radius: TALFloat read fRadius;
       property Direction: TGEMVec3 read fDirection;
       property ConeAngle: TALFloat read fConeAngle;
@@ -208,6 +210,7 @@ type
       procedure MovePosition(const aPos: TGEMVec3);
       procedure SetGain(const aGain: TALFloat);
       procedure SetRelativeGain(const aLow, aHigh: TALFloat);
+      procedure SetPitch(const aPitch: Single);
       procedure SetRadius(const aRadius: TALFloat);
       procedure SetDirection(const aDirection: TGEMVec3);
       procedure DirectAt(const aAt: TGEMVec3);
@@ -777,6 +780,7 @@ const FuncName: String = 'TGEMSoundSource.Create';
     Self.fRelativeGainLow := 0;
     Self.fRelativeGainHigh := 1;
     Self.fGainRange := 1;
+    Self.fPitch := 1;
 
     Self.fAttenuationEnabled := True;
 
@@ -970,6 +974,12 @@ temp: TALFloat;
     Self.SetGain(Self.fGain);
 
     call_err_macro;
+  end;
+
+procedure TGEMSoundSource.SetPitch(const aPitch: Single);
+  begin
+    Self.fPitch := aPitch;
+    alSourcef(Self.fSource, AL_PITCH, aPitch);
   end;
 
 procedure TGEMSoundSource.SetRadius(const aRadius: TALFloat);

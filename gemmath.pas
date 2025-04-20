@@ -4,15 +4,9 @@ unit GEMMath;
 	{$mode ObjFPC}{$H+}
 	{$modeswitch ADVANCEDRECORDS}
 	{$INLINE ON}
-	{$MACRO ON}
-
-	{$IFOPT D+}
-		{$DEFINE DEBUG_INLINE := }
-	{$ELSE}
-		{$DEFINE DEBUG_INLINE := inline;}
-	{$ENDIF}
-
 {$endif}
+
+{$i gemoptimizations.Inc}
 
 interface
 
@@ -26,29 +20,29 @@ uses
 
   function ClampF(AValue: Single): Single;
   function ClampI(AValue: Single): Integer;
-  function Rnd(Low: Single; High: Single): Single; overload;  DEBUG_INLINE
-  function Rnd(High: Single = 1): Single; overload;  DEBUG_INLINE
-  function PosOrNeg(): Integer;  DEBUG_INLINE
-  procedure IncF(var X: Single; N: Single = 1);  DEBUG_INLINE
-  procedure DecF(var X: Single; N: Single = 1);  DEBUG_INLINE
-  procedure IncRange(var X: Integer; N: Integer; Low: Integer; High: Integer); overload;  DEBUG_INLINE
-  procedure IncRange(var X: Single; N: Single; Low: Single; High: Single); overload;  DEBUG_INLINE
-  function RoundF(X: Single): Integer;  DEBUG_INLINE
-  function RoundUp(X: Single): Integer;  DEBUG_INLINE
-  function Distance(X1,Y1,X2,Y2: Single): Single;  DEBUG_INLINE
-  function Radians(ADegrees: Single): Single;  DEBUG_INLINE
-  function Degrees(ARadians: Single): Single;  DEBUG_INLINE
-  procedure ClampRadians(var ARadians: Single);  DEBUG_INLINE
-  procedure ClampDegrees(var ADegrees: Single);  DEBUG_INLINE
-  function Biggest(Values: specialize TArray<Single>): Single; DEBUG_INLINE
-  function BiggestIndex(Values: specialize TArray<Single>): Integer;  DEBUG_INLINE
-  function Smallest(Values: specialize TArray<Single>): Single;  DEBUG_INLINE
-  function SmallestIndex(Values: specialize TArray<Single>): Integer;  DEBUG_INLINE
-  function InRange(AValue: Single; ALow,AHigh: Single): Boolean;  DEBUG_INLINE
-  procedure ClampRange(var AValue: Integer; ALow,AHigh: Integer); overload;  DEBUG_INLINE
-  procedure ClampRange(var AValue: Single; ALow,AHigh: Single); overload;  DEBUG_INLINE
-  function ZeroBelow(var AVar: Single; ALowLimit: Single): Boolean;  DEBUG_INLINE
-  function RotateTo(ACurrentAngle, ATargetAngle: Single): Integer;  DEBUG_INLINE
+  function Rnd(Low: Single; High: Single): Single; overload;
+  function Rnd(constref High: Single = 1): Single; overload;
+  function PosOrNeg(): Integer;
+  procedure IncF(var X: Single; N: Single = 1);
+  procedure DecF(var X: Single; N: Single = 1);
+  procedure IncRange(var X: Integer; N: Integer; Low: Integer; High: Integer); overload;
+  procedure IncRange(var X: Single; N: Single; Low: Single; High: Single); overload;
+  function RoundF(X: Single): Integer;
+  function RoundUp(X: Single): Integer;
+  function Distance(X1,Y1,X2,Y2: Single): Single;
+  function Radians(ADegrees: Single): Single;
+  function Degrees(ARadians: Single): Single;
+  procedure ClampRadians(var ARadians: Single);
+  procedure ClampDegrees(var ADegrees: Single);
+  function Biggest(Values: specialize TArray<Single>): Single;
+  function BiggestIndex(Values: specialize TArray<Single>): Integer;
+  function Smallest(Values: specialize TArray<Single>): Single;
+  function SmallestIndex(Values: specialize TArray<Single>): Integer;
+  function InRange(AValue: Single; ALow,AHigh: Single): Boolean;
+  procedure ClampRange(var AValue: Integer; ALow,AHigh: Integer); overload;
+  procedure ClampRange(var AValue: Single; ALow,AHigh: Single); overload;
+  function ZeroBelow(var AVar: Single; ALowLimit: Single): Boolean;
+  function RotateTo(ACurrentAngle, ATargetAngle: Single): Integer;
   procedure DeleteIndex(AArray: specialize TArray<Variant>; AIndex: Cardinal);
   procedure AssignConvert(var AOrgValue: Byte; const AAssignValue: Variant); overload;
   procedure AssignConvert(var AOrgValue: Integer; const AAssignValue: Variant); overload;
@@ -60,9 +54,14 @@ uses
   procedure AssignConvert(var AOrgValue: Char; const AAssignValue: Variant); overload;
   procedure AssignConvert(var AOrgValue: String; const AAssignValue: Variant); overload;
   procedure AssignConvert(var AOrgValue: Boolean; const AAssignValue: Variant); overload;
-  function Point(X,Y: Single): TPoint; overload;  DEBUG_INLINE
-  function AngularDiameter(AObjectSize, ADistToObject: Single): Single;  DEBUG_INLINE
+  function Point(X,Y: Single): TPoint; overload;
+  function AngularDiameter(AObjectSize, ADistToObject: Single): Single;
   function Median(const aMin: Single = 0; const aMax: Single = 0): Single;
+  function OptimalTurn(CAngle,TAngle: Single): Integer;
+
+
+const
+  Pi2: Double = 6.28318530718;
 
 implementation
 
@@ -86,10 +85,10 @@ function ClampI(AValue: Single): Integer;
 function Rnd(Low: Single; High: Single): Single;
 // return random float between low and high inclusive
   begin
-    Result := Low + (((High - Low) + 1) * Random);
+    Result := Low + (((High - Low)) * Random);
   end;
 
-function Rnd(High: Single = 1): Single;
+function Rnd(constref High: Single = 1): Single;
 // return random float between 0 and high inclusive
   begin
     Result := (High * Random);
@@ -179,10 +178,10 @@ function Degrees(ARadians: Single): Single;
 
 procedure ClampRadians(var ARadians: Single);
   begin
-    if ARadians > Pi then begin
+    if ARadians > Pi * 2 then begin
       IncF(ARadians, -(Pi * 2));
     end;
-    if ARadians < -Pi then begin
+    if ARadians < 0 then begin
       IncF(ARadians, (Pi * 2));
     end;
   end;
@@ -281,7 +280,7 @@ function ZeroBelow(var AVar: Single; ALowLimit: Single): Boolean;
     end;
   end;
 
-function RotateTo(ACurrentAngle, ATargetAngle: Single): Integer;  DEBUG_INLINE
+function RotateTo(ACurrentAngle, ATargetAngle: Single): Integer;
 var
 a,b,c,d: Single;
   begin
@@ -420,6 +419,26 @@ Range: Single;
 	begin
   	Range := aMax - aMin;
     Exit(aMin + (Range / 2));
+  end;
+
+function OptimalTurn(CAngle,TAngle: Single): Integer;
+var
+A,B,C,D: Double;
+  begin
+    ClampRadians(CAngle);
+    ClampRadians(TAngle);
+
+    A := TAngle - CAngle;
+    B := TAngle - CAngle + (Pi * 2);
+    C := TAngle - CAngle - (Pi * 2);
+
+    if (abs(A) < abs(B)) and (abs(A) < abs(C)) then D := A;
+    if (abs(B) < abs(A)) and (abs(B) < abs(C)) then D := B;
+    if (abs(C) < abs(A)) and (abs(C) < abs(B)) then D := C;
+
+    if D > 0 Then Result := 1;
+    if D < 0 Then Result := -1;
+    if D = 0 Then Result := 0;
   end;
 
 end.

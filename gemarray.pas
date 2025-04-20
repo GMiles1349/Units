@@ -1,12 +1,14 @@
 unit GEMArray;
 
-{$mode ObjFPC}{$H+}
+{$mode Delphi}{$H+}
 {$modeswitch ADVANCEDRECORDS}
 {$modeswitch ALLOWINLINE}
 {$modeswitch AUTODEREF}
 {$modeswitch OUT}
 
-{$VARPROPSETTER ON}
+{$varpropsetter ON}
+
+{$i gemoptimizations.Inc}
 
 interface
 
@@ -15,7 +17,9 @@ uses
 
 type
 
-  generic TGEMArray<T> = record
+  TGEMArray<T> = record
+    type TPointer = ^T;
+
 		private
       fTypeSize: Cardinal;
     	fElement: Array of T;
@@ -24,182 +28,183 @@ type
       fHigh: Int64;
 
       // getters/setters
-      function GetElement(const Index: UInt64): T; inline;
-      procedure SetElement(const Index: UInt64; Value: T); inline;
+      function GetElement(const Index: UInt64): T;
+      function GetData(const Index: UInt64): TPointer;
+      procedure SetElement(const Index: UInt64; Value: T);
 
       // under the hood resizing and checking
-      procedure UpdateLength(const IncBy: Int64); // inline;
+      procedure UpdateLength(const IncBy: Int64); //
 
     public
       property Element[Index: UInt64]: T read GetElement write SetElement; default;
+      property Data[Index: UInt64]: TPointer read GetData;
       property Reserved: UInt64 read fReserved;
       property Size: UInt64 read fSize;
       property High: Int64 read fHigh;
 
-      class operator Initialize(var Dest: TGEMArray);
-      class operator :=(var aArray: specialize TArray<T>): specialize TGEMArray<T>; overload;
-      class operator :=(var aArray: specialize TGEMArray<T>): specialize TArray<T>; overload;
+      class operator Initialize(var Dest: TGEMArray<T>);
+      class operator :=(var aArray: TArray<T>): TGEMArray<T>; overload;
+      class operator :=(var aArray: TGEMArray<T>): TArray<T>; overload;
 
       // queries
-      function GetSizeMem(): UInt64; inline;
-      function GetReservedMem(): UInt64; inline;
+      function GetSizeMem(): UInt64;
+      function GetReservedMem(): UInt64;
 
-      function Copy(): specialize TArray<T>; inline;
+      function Copy(): TArray<T>;
 
       // sizing
-      procedure Reserve(const ResLength: UInt64); inline;
-      procedure SetSize(const aSize: UInt64); inline;
-      procedure Shrink(); inline;
+      procedure Reserve(const ResLength: UInt64);
+      procedure SetSize(const aSize: UInt64);
+      procedure Shrink();
 
       // pushing
-      procedure PushBack(const Value: T); overload; inline;
-      procedure PushBack(const Values: specialize TArray<T>); overload; inline;
-      procedure PushFront(const Value: T); inline;
-      procedure PushFront(const Values: specialize TArray<T>); overload; inline;
-      procedure Insert(const Value: T; const Index: UInt64); overload; inline;
-      procedure Insert(const Values: specialize TArray<T>; const Index: UInt64); overload; inline;
+      procedure PushBack(); overload;
+      procedure PushBack(const Value: T); overload;
+      procedure PushBack(const Values: TArray<T>); overload;
+      procedure PushFront(const Value: T); overload;
+      procedure PushFront(const Values: TArray<T>); overload;
+      procedure Insert(const Value: T; const Index: UInt64); overload;
+      procedure Insert(const Values: TArray<T>; const Index: UInt64); overload;
 
       // popping
-      procedure PopBack(); overload; inline;
-      procedure PopBack(const Count: UInt64); overload; inline;
-      procedure PopFront(); overload; inline;
-      procedure PopFront(const Count: UInt64); overload; inline;
+      procedure PopBack(); overload;
+      procedure PopBack(const Count: UInt64); overload;
+      procedure PopFront(); overload;
+      procedure PopFront(const Count: UInt64); overload;
 
       // search
-      function Count(const Value: T): UInt64; overload; inline;
-      function FindFirst(const Value: T): Int64; overload; inline;
-      function FindLast(const Value: T): Int64; overload; inline;
-      function FindAll(const Value: T): specialize TArray<UInt64>; overload; inline;
+      function Count(const Value: T): UInt64; overload;
+      function FindFirst(const Value: T): Int64; overload;
+      function FindLast(const Value: T): Int64; overload;
+      function FindAll(const Value: T): TArray<UInt64>; overload;
 
-      function Replace(const Value: T; const NewValue: T): UInt64; overload; inline;
-      function Replace(const NewValue: T; const Indices: specialize TArray<UInt64>): UInt64; overload; inline;
+      function Replace(const Value: T; const NewValue: T): UInt64; overload;
+      function Replace(const NewValue: T; const Indices: TArray<UInt64>): UInt64; overload;
 
-      function DeleteFirst(const Value: T): UInt64; overload; inline;
-      function DeleteLast(const Value: T): UInt64; overload; inline;
-      function DeleteAll(const Value: T): UInt64; overload; inline;
+      function DeleteFirst(const Value: T): UInt64; overload;
+      function DeleteLast(const Value: T): UInt64; overload;
+      function DeleteAll(const Value: T): UInt64; overload;
 
   end;
 
-  procedure Push(var Arr: Specialize TArray<UInt8>; const Value: UInt8); register; overload; inline;
-  procedure Push(var Arr: Specialize TArray<UInt16>; const Value: UInt16); register; overload; inline;
-  procedure Push(var Arr: Specialize TArray<UInt32>; const Value: UInt32); register; overload; inline;
-  procedure Push(var Arr: Specialize TArray<UInt64>; const Value: UInt64); register; overload; inline;
-  procedure Push(var Arr: Specialize TArray<Int8>; const Value: Int8); register; overload; inline;
-  procedure Push(var Arr: Specialize TArray<Int16>; const Value: Int16); register; overload; inline;
-  procedure Push(var Arr: Specialize TArray<Int32>; const Value: Int32); register; overload; inline;
-  procedure Push(var Arr: Specialize TArray<Int64>; const Value: Int64); register; overload; inline;
-  procedure Push(var Arr: Specialize TArray<Single>; const Value: Single); register; overload; inline;
-  procedure Push(var Arr: Specialize TArray<Double>; const Value: Double); register; overload; inline;
+  procedure Push(var Arr: TArray<UInt8>; const Value: UInt8); register; overload;
+  procedure Push(var Arr: TArray<UInt16>; const Value: UInt16); register; overload;
+  procedure Push(var Arr: TArray<UInt32>; const Value: UInt32); register; overload;
+  procedure Push(var Arr: TArray<UInt64>; const Value: UInt64); register; overload;
+  procedure Push(var Arr: TArray<Int8>; const Value: Int8); register; overload;
+  procedure Push(var Arr: TArray<Int16>; const Value: Int16); register; overload;
+  procedure Push(var Arr: TArray<Int32>; const Value: Int32); register; overload;
+  procedure Push(var Arr: TArray<Int64>; const Value: Int64); register; overload;
+  procedure Push(var Arr: TArray<Single>; const Value: Single); register; overload;
+  procedure Push(var Arr: TArray<Double>; const Value: Double); register; overload;
 
-  procedure PushFront(var Arr: Specialize TArray<UInt8>; const Value: UInt8); register; overload; inline;
-  procedure PushFront(var Arr: Specialize TArray<UInt16>; const Value: UInt16); register; overload; inline;
-  procedure PushFront(var Arr: Specialize TArray<UInt32>; const Value: UInt32); register; overload; inline;
-  procedure PushFront(var Arr: Specialize TArray<UInt64>; const Value: UInt64); register; overload; inline;
-  procedure PushFront(var Arr: Specialize TArray<Int8>; const Value: Int8); register; overload; inline;
-  procedure PushFront(var Arr: Specialize TArray<Int16>; const Value: Int16); register; overload; inline;
-  procedure PushFront(var Arr: Specialize TArray<Int32>; const Value: Int32); register; overload; inline;
-  procedure PushFront(var Arr: Specialize TArray<Int64>; const Value: Int64); register; overload; inline;
-  procedure PushFront(var Arr: Specialize TArray<Single>; const Value: Single); register; overload; inline;
-  procedure PushFront(var Arr: Specialize TArray<Double>; const Value: Double); register; overload; inline;
+  procedure PushFront(var Arr: TArray<UInt8>; const Value: UInt8); register; overload;
+  procedure PushFront(var Arr: TArray<UInt16>; const Value: UInt16); register; overload;
+  procedure PushFront(var Arr: TArray<UInt32>; const Value: UInt32); register; overload;
+  procedure PushFront(var Arr: TArray<UInt64>; const Value: UInt64); register; overload;
+  procedure PushFront(var Arr: TArray<Int8>; const Value: Int8); register; overload;
+  procedure PushFront(var Arr: TArray<Int16>; const Value: Int16); register; overload;
+  procedure PushFront(var Arr: TArray<Int32>; const Value: Int32); register; overload;
+  procedure PushFront(var Arr: TArray<Int64>; const Value: Int64); register; overload;
+  procedure PushFront(var Arr: TArray<Single>; const Value: Single); register; overload;
+  procedure PushFront(var Arr: TArray<Double>; const Value: Double); register; overload;
 
-  procedure Pop(var Arr: Specialize TArray<UInt8>; const Count: UInt64 = 1); register; overload; inline;
-  procedure Pop(var Arr: Specialize TArray<UInt16>; const Count: UInt64 = 1); register; overload; inline;
-  procedure Pop(var Arr: Specialize TArray<UInt32>; const Count: UInt64 = 1); register; overload; inline;
-  procedure Pop(var Arr: Specialize TArray<UInt64>; const Count: UInt64 = 1); register; overload; inline;
-  procedure Pop(var Arr: Specialize TArray<Int8>; const Count: UInt64 = 1); register; overload; inline;
-  procedure Pop(var Arr: Specialize TArray<Int16>; const Count: UInt64 = 1); register; overload; inline;
-  procedure Pop(var Arr: Specialize TArray<Int32>; const Count: UInt64 = 1); register; overload; inline;
-  procedure Pop(var Arr: Specialize TArray<Int64>; const Count: UInt64 = 1); register; overload; inline;
-  procedure Pop(var Arr: Specialize TArray<Single>; const Count: UInt64 = 1); register; overload; inline;
-  procedure Pop(var Arr: Specialize TArray<Double>; const Count: UInt64 = 1); register; overload; inline;
+  procedure Pop(var Arr: TArray<UInt8>; const Count: UInt64 = 1); register; overload;
+  procedure Pop(var Arr: TArray<UInt16>; const Count: UInt64 = 1); register; overload;
+  procedure Pop(var Arr: TArray<UInt32>; const Count: UInt64 = 1); register; overload;
+  procedure Pop(var Arr: TArray<UInt64>; const Count: UInt64 = 1); register; overload;
+  procedure Pop(var Arr: TArray<Int8>; const Count: UInt64 = 1); register; overload;
+  procedure Pop(var Arr: TArray<Int16>; const Count: UInt64 = 1); register; overload;
+  procedure Pop(var Arr: TArray<Int32>; const Count: UInt64 = 1); register; overload;
+  procedure Pop(var Arr: TArray<Int64>; const Count: UInt64 = 1); register; overload;
+  procedure Pop(var Arr: TArray<Single>; const Count: UInt64 = 1); register; overload;
+  procedure Pop(var Arr: TArray<Double>; const Count: UInt64 = 1); register; overload;
 
-  procedure PopFront(var Arr: Specialize TArray<UInt8>; const Count: UInt64 =1); register; overload; inline;
-  procedure PopFront(var Arr: Specialize TArray<UInt16>; const Count: UInt64 = 1); register; overload; inline;
-  procedure PopFront(var Arr: Specialize TArray<UInt32>; const Count: UInt64 = 1); register; overload; inline;
-  procedure PopFront(var Arr: Specialize TArray<UInt64>; const Count: UInt64 = 1); register; overload; inline;
-  procedure PopFront(var Arr: Specialize TArray<Int8>; const Count: UInt64 = 1); register; overload; inline;
-  procedure PopFront(var Arr: Specialize TArray<Int16>; const Count: UInt64 = 1); register; overload; inline;
-  procedure PopFront(var Arr: Specialize TArray<Int32>; const Count: UInt64 = 1); register; overload; inline;
-  procedure PopFront(var Arr: Specialize TArray<Int64>; const Count: UInt64 = 1); register; overload; inline;
-  procedure PopFront(var Arr: Specialize TArray<Single>; const Count: UInt64 = 1); register; overload; inline;
-  procedure PopFront(var Arr: Specialize TArray<Double>; const Count: UInt64 = 1); register; overload; inline;
+  procedure PopFront(var Arr: TArray<UInt8>; const Count: UInt64 =1); register; overload;
+  procedure PopFront(var Arr: TArray<UInt16>; const Count: UInt64 = 1); register; overload;
+  procedure PopFront(var Arr: TArray<UInt32>; const Count: UInt64 = 1); register; overload;
+  procedure PopFront(var Arr: TArray<UInt64>; const Count: UInt64 = 1); register; overload;
+  procedure PopFront(var Arr: TArray<Int8>; const Count: UInt64 = 1); register; overload;
+  procedure PopFront(var Arr: TArray<Int16>; const Count: UInt64 = 1); register; overload;
+  procedure PopFront(var Arr: TArray<Int32>; const Count: UInt64 = 1); register; overload;
+  procedure PopFront(var Arr: TArray<Int64>; const Count: UInt64 = 1); register; overload;
+  procedure PopFront(var Arr: TArray<Single>; const Count: UInt64 = 1); register; overload;
+  procedure PopFront(var Arr: TArray<Double>; const Count: UInt64 = 1); register; overload;
 
-  procedure ArrCom(var Dest: Specialize TArray<UInt8>; constref Source: Specialize TArray<UInt8>); overload; inline;
-  procedure ArrCom(var Dest: Specialize TArray<UInt16>; constref Source: Specialize TArray<UInt16>); overload; inline;
-  procedure ArrCom(var Dest: Specialize TArray<UInt32>; constref Source: Specialize TArray<UInt32>); overload; inline;
-  procedure ArrCom(var Dest: Specialize TArray<UInt64>; constref Source: Specialize TArray<UInt64>); overload; inline;
-  procedure ArrCom(var Dest: Specialize TArray<Int8>; constref Source: Specialize TArray<Int8>); overload; inline;
-  procedure ArrCom(var Dest: Specialize TArray<Int16>; constref Source: Specialize TArray<Int16>); overload; inline;
-  procedure ArrCom(var Dest: Specialize TArray<Int32>; constref Source: Specialize TArray<Int32>); overload; inline;
-  procedure ArrCom(var Dest: Specialize TArray<Int64>; constref Source: Specialize TArray<Int64>); overload; inline;
-  procedure ArrCom(var Dest: Specialize TArray<Single>; constref Source: Specialize TArray<Single>); overload; inline;
-  procedure ArrCom(var Dest: Specialize TArray<Double>; constref Source: Specialize TArray<Double>); overload; inline;
-
-  operator := (const Arr: specialize TArray<Char>): specialize TGEMArray<Char>;
+  procedure ArrCom(var Dest: TArray<UInt8>; constref Source: TArray<UInt8>); overload;
+  procedure ArrCom(var Dest: TArray<UInt16>; constref Source: TArray<UInt16>); overload;
+  procedure ArrCom(var Dest: TArray<UInt32>; constref Source: TArray<UInt32>); overload;
+  procedure ArrCom(var Dest: TArray<UInt64>; constref Source: TArray<UInt64>); overload;
+  procedure ArrCom(var Dest: TArray<Int8>; constref Source: TArray<Int8>); overload;
+  procedure ArrCom(var Dest: TArray<Int16>; constref Source: TArray<Int16>); overload;
+  procedure ArrCom(var Dest: TArray<Int32>; constref Source: TArray<Int32>); overload;
+  procedure ArrCom(var Dest: TArray<Int64>; constref Source: TArray<Int64>); overload;
+  procedure ArrCom(var Dest: TArray<Single>; constref Source: TArray<Single>); overload;
+  procedure ArrCom(var Dest: TArray<Double>; constref Source: TArray<Double>); overload;
 
 implementation
 
-procedure Push(var Arr: Specialize TArray<UInt8>; const Value: UInt8);
+procedure Push(var Arr: TArray<UInt8>; const Value: UInt8);
 	begin
     SetLength(Arr, Length(Arr) + 1);
     Arr[High(Arr)] := Value;
   end;
 
-procedure Push(var Arr: Specialize TArray<UInt16>; const Value: UInt16);
+procedure Push(var Arr: TArray<UInt16>; const Value: UInt16);
 	begin
     SetLength(Arr, Length(Arr) + 1);
     Arr[High(Arr)] := Value;
   end;
 
-procedure Push(var Arr: Specialize TArray<UInt32>; const Value: UInt32);
+procedure Push(var Arr: TArray<UInt32>; const Value: UInt32);
 	begin
     SetLength(Arr, Length(Arr) + 1);
     Arr[High(Arr)] := Value;
   end;
 
-procedure Push(var Arr: Specialize TArray<UInt64>; const Value: UInt64);
+procedure Push(var Arr: TArray<UInt64>; const Value: UInt64);
 	begin
     SetLength(Arr, Length(Arr) + 1);
     Arr[High(Arr)] := Value;
   end;
 
-procedure Push(var Arr: Specialize TArray<Int8>; const Value: Int8);
+procedure Push(var Arr: TArray<Int8>; const Value: Int8);
 	begin
     SetLength(Arr, Length(Arr) + 1);
     Arr[High(Arr)] := Value;
   end;
 
-procedure Push(var Arr: Specialize TArray<Int16>; const Value: Int16);
+procedure Push(var Arr: TArray<Int16>; const Value: Int16);
 	begin
     SetLength(Arr, Length(Arr) + 1);
     Arr[High(Arr)] := Value;
   end;
 
-procedure Push(var Arr: Specialize TArray<Int32>; const Value: Int32);
+procedure Push(var Arr: TArray<Int32>; const Value: Int32);
 	begin
     SetLength(Arr, Length(Arr) + 1);
     Arr[High(Arr)] := Value;
   end;
 
-procedure Push(var Arr: Specialize TArray<Int64>; const Value: Int64);
+procedure Push(var Arr: TArray<Int64>; const Value: Int64);
 	begin
     SetLength(Arr, Length(Arr) + 1);
     Arr[High(Arr)] := Value;
   end;
 
-procedure Push(var Arr: Specialize TArray<Single>; const Value: Single);
+procedure Push(var Arr: TArray<Single>; const Value: Single);
 	begin
     SetLength(Arr, Length(Arr) + 1);
     Arr[High(Arr)] := Value;
   end;
 
-procedure Push(var Arr: Specialize TArray<Double>; const Value: Double);
+procedure Push(var Arr: TArray<Double>; const Value: Double);
 	begin
     SetLength(Arr, Length(Arr) + 1);
     Arr[High(Arr)] := Value;
   end;
 
-procedure PushFront(var Arr: Specialize TArray<UInt8>; const Value: UInt8);
+procedure PushFront(var Arr: TArray<UInt8>; const Value: UInt8);
 var
 S: UInt64;
 	begin
@@ -209,7 +214,7 @@ S: UInt64;
     Arr[0] := Value;
   end;
 
-procedure PushFront(var Arr: Specialize TArray<UInt16>; const Value: UInt16);
+procedure PushFront(var Arr: TArray<UInt16>; const Value: UInt16);
 var
 S: UInt64;
 	begin
@@ -219,7 +224,7 @@ S: UInt64;
     Arr[0] := Value;
   end;
 
-procedure PushFront(var Arr: Specialize TArray<UInt32>; const Value: UInt32);
+procedure PushFront(var Arr: TArray<UInt32>; const Value: UInt32);
 var
 S: UInt64;
 	begin
@@ -229,7 +234,7 @@ S: UInt64;
     Arr[0] := Value;
   end;
 
-procedure PushFront(var Arr: Specialize TArray<UInt64>; const Value: UInt64);
+procedure PushFront(var Arr: TArray<UInt64>; const Value: UInt64);
 var
 S: UInt64;
 	begin
@@ -239,7 +244,7 @@ S: UInt64;
     Arr[0] := Value;
   end;
 
-procedure PushFront(var Arr: Specialize TArray<Int8>; const Value: Int8);
+procedure PushFront(var Arr: TArray<Int8>; const Value: Int8);
 var
 S: UInt64;
 	begin
@@ -249,7 +254,7 @@ S: UInt64;
     Arr[0] := Value;
   end;
 
-procedure PushFront(var Arr: Specialize TArray<Int16>; const Value: Int16);
+procedure PushFront(var Arr: TArray<Int16>; const Value: Int16);
 var
 S: UInt64;
 	begin
@@ -259,7 +264,7 @@ S: UInt64;
     Arr[0] := Value;
   end;
 
-procedure PushFront(var Arr: Specialize TArray<Int32>; const Value: Int32);
+procedure PushFront(var Arr: TArray<Int32>; const Value: Int32);
 var
 S: UInt64;
 	begin
@@ -269,7 +274,7 @@ S: UInt64;
     Arr[0] := Value;
   end;
 
-procedure PushFront(var Arr: Specialize TArray<Int64>; const Value: Int64);
+procedure PushFront(var Arr: TArray<Int64>; const Value: Int64);
 var
 S: UInt64;
 	begin
@@ -279,7 +284,7 @@ S: UInt64;
     Arr[0] := Value;
   end;
 
-procedure PushFront(var Arr: Specialize TArray<Single>; const Value: Single);
+procedure PushFront(var Arr: TArray<Single>; const Value: Single);
 var
 S: UInt64;
 	begin
@@ -289,7 +294,7 @@ S: UInt64;
     Arr[0] := Value;
   end;
 
-procedure PushFront(var Arr: Specialize TArray<Double>; const Value: Double);
+procedure PushFront(var Arr: TArray<Double>; const Value: Double);
 var
 S: UInt64;
 	begin
@@ -299,57 +304,57 @@ S: UInt64;
     Arr[0] := Value;
   end;
 
-procedure Pop(var Arr: Specialize TArray<UInt8>; const Count: UInt64 = 1);
+procedure Pop(var Arr: TArray<UInt8>; const Count: UInt64 = 1);
 	begin
   	SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure Pop(var Arr: Specialize TArray<UInt16>; const Count: UInt64 = 1);
+procedure Pop(var Arr: TArray<UInt16>; const Count: UInt64 = 1);
 	begin
   	SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure Pop(var Arr: Specialize TArray<UInt32>; const Count: UInt64 = 1);
+procedure Pop(var Arr: TArray<UInt32>; const Count: UInt64 = 1);
 	begin
   	SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure Pop(var Arr: Specialize TArray<UInt64>; const Count: UInt64 = 1);
+procedure Pop(var Arr: TArray<UInt64>; const Count: UInt64 = 1);
 	begin
   	SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure Pop(var Arr: Specialize TArray<Int8>; const Count: UInt64 = 1);
+procedure Pop(var Arr: TArray<Int8>; const Count: UInt64 = 1);
 	begin
   	SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure Pop(var Arr: Specialize TArray<Int16>; const Count: UInt64 = 1);
+procedure Pop(var Arr: TArray<Int16>; const Count: UInt64 = 1);
 	begin
   	SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure Pop(var Arr: Specialize TArray<Int32>; const Count: UInt64 = 1);
+procedure Pop(var Arr: TArray<Int32>; const Count: UInt64 = 1);
 	begin
   	SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure Pop(var Arr: Specialize TArray<Int64>; const Count: UInt64 = 1);
+procedure Pop(var Arr: TArray<Int64>; const Count: UInt64 = 1);
 	begin
   	SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure Pop(var Arr: Specialize TArray<Single>; const Count: UInt64 = 1);
+procedure Pop(var Arr: TArray<Single>; const Count: UInt64 = 1);
 	begin
   	SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure Pop(var Arr: Specialize TArray<Double>; const Count: UInt64 = 1);
+procedure Pop(var Arr: TArray<Double>; const Count: UInt64 = 1);
 	begin
   	SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure PopFront(var Arr: Specialize TArray<UInt8>; const Count: UInt64 = 1);
+procedure PopFront(var Arr: TArray<UInt8>; const Count: UInt64 = 1);
 var
 S: Integer;
 	begin
@@ -358,7 +363,7 @@ S: Integer;
     SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure PopFront(var Arr: Specialize TArray<UInt16>; const Count: UInt64 = 1);
+procedure PopFront(var Arr: TArray<UInt16>; const Count: UInt64 = 1);
 var
 S: Integer;
 	begin
@@ -367,7 +372,7 @@ S: Integer;
     SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure PopFront(var Arr: Specialize TArray<UInt32>; const Count: UInt64 = 1);
+procedure PopFront(var Arr: TArray<UInt32>; const Count: UInt64 = 1);
 var
 S: Integer;
 	begin
@@ -376,7 +381,7 @@ S: Integer;
     SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure PopFront(var Arr: Specialize TArray<UInt64>; const Count: UInt64 = 1);
+procedure PopFront(var Arr: TArray<UInt64>; const Count: UInt64 = 1);
 var
 S: Integer;
 	begin
@@ -385,7 +390,7 @@ S: Integer;
     SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure PopFront(var Arr: Specialize TArray<Int8>; const Count: UInt64 = 1);
+procedure PopFront(var Arr: TArray<Int8>; const Count: UInt64 = 1);
 var
 S: Integer;
 	begin
@@ -394,7 +399,7 @@ S: Integer;
     SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure PopFront(var Arr: Specialize TArray<Int16>; const Count: UInt64 = 1);
+procedure PopFront(var Arr: TArray<Int16>; const Count: UInt64 = 1);
 var
 S: Integer;
 	begin
@@ -403,7 +408,7 @@ S: Integer;
     SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure PopFront(var Arr: Specialize TArray<Int32>; const Count: UInt64 = 1);
+procedure PopFront(var Arr: TArray<Int32>; const Count: UInt64 = 1);
 var
 S: Integer;
 	begin
@@ -412,7 +417,7 @@ S: Integer;
     SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure PopFront(var Arr: Specialize TArray<Int64>; const Count: UInt64 = 1);
+procedure PopFront(var Arr: TArray<Int64>; const Count: UInt64 = 1);
 var
 S: Integer;
 	begin
@@ -421,7 +426,7 @@ S: Integer;
     SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure PopFront(var Arr: Specialize TArray<Single>; const Count: UInt64 = 1);
+procedure PopFront(var Arr: TArray<Single>; const Count: UInt64 = 1);
 var
 S: Integer;
 	begin
@@ -430,7 +435,7 @@ S: Integer;
     SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure PopFront(var Arr: Specialize TArray<Double>; const Count: UInt64 = 1);
+procedure PopFront(var Arr: TArray<Double>; const Count: UInt64 = 1);
 var
 S: Integer;
 	begin
@@ -439,7 +444,7 @@ S: Integer;
     SetLength(Arr, Length(Arr) - Count);
   end;
 
-procedure ArrCom(var Dest: Specialize TArray<UInt8>; constref Source: Specialize TArray<UInt8>);
+procedure ArrCom(var Dest: TArray<UInt8>; constref Source: TArray<UInt8>);
 var
 DSize, SSize: Int64;
 	begin
@@ -449,7 +454,7 @@ DSize, SSize: Int64;
     Move(Source[0], Dest[DSize + 1], SSize * SizeOf(Dest[0]));
   end;
 
-procedure ArrCom(var Dest: Specialize TArray<UInt16>; constref Source: Specialize TArray<UInt16>);
+procedure ArrCom(var Dest: TArray<UInt16>; constref Source: TArray<UInt16>);
 var
 DSize, SSize: Int64;
 	begin
@@ -459,7 +464,7 @@ DSize, SSize: Int64;
     Move(Source[0], Dest[DSize + 1], SSize * SizeOf(Dest[0]));
   end;
 
-procedure ArrCom(var Dest: Specialize TArray<UInt32>; constref Source: Specialize TArray<UInt32>);
+procedure ArrCom(var Dest: TArray<UInt32>; constref Source: TArray<UInt32>);
 var
 DSize, SSize: Int64;
 	begin
@@ -469,7 +474,7 @@ DSize, SSize: Int64;
     Move(Source[0], Dest[DSize + 1], SSize * SizeOf(Dest[0]));
   end;
 
-procedure ArrCom(var Dest: Specialize TArray<UInt64>; constref Source: Specialize TArray<UInt64>);
+procedure ArrCom(var Dest: TArray<UInt64>; constref Source: TArray<UInt64>);
 var
 DSize, SSize: Int64;
 	begin
@@ -479,7 +484,7 @@ DSize, SSize: Int64;
     Move(Source[0], Dest[DSize + 1], SSize * SizeOf(Dest[0]));
   end;
 
-procedure ArrCom(var Dest: Specialize TArray<Int8>; constref Source: Specialize TArray<Int8>);
+procedure ArrCom(var Dest: TArray<Int8>; constref Source: TArray<Int8>);
 var
 DSize, SSize: Int64;
 	begin
@@ -489,7 +494,7 @@ DSize, SSize: Int64;
     Move(Source[0], Dest[DSize + 1], SSize * SizeOf(Dest[0]));
   end;
 
-procedure ArrCom(var Dest: Specialize TArray<Int16>; constref Source: Specialize TArray<Int16>);
+procedure ArrCom(var Dest: TArray<Int16>; constref Source: TArray<Int16>);
 var
 DSize, SSize: Int64;
 	begin
@@ -499,7 +504,7 @@ DSize, SSize: Int64;
     Move(Source[0], Dest[DSize + 1], SSize * SizeOf(Dest[0]));
   end;
 
-procedure ArrCom(var Dest: Specialize TArray<Int32>; constref Source: Specialize TArray<Int32>);
+procedure ArrCom(var Dest: TArray<Int32>; constref Source: TArray<Int32>);
 var
 DSize, SSize: Int64;
 	begin
@@ -509,7 +514,7 @@ DSize, SSize: Int64;
     Move(Source[0], Dest[DSize + 1], SSize * SizeOf(Dest[0]));
   end;
 
-procedure ArrCom(var Dest: Specialize TArray<Int64>; constref Source: Specialize TArray<Int64>);
+procedure ArrCom(var Dest: TArray<Int64>; constref Source: TArray<Int64>);
 var
 DSize, SSize: Int64;
 	begin
@@ -519,7 +524,7 @@ DSize, SSize: Int64;
     Move(Source[0], Dest[DSize + 1], SSize * SizeOf(Dest[0]));
   end;
 
-procedure ArrCom(var Dest: Specialize TArray<Single>; constref Source: Specialize TArray<Single>);
+procedure ArrCom(var Dest: TArray<Single>; constref Source: TArray<Single>);
 var
 DSize, SSize: Int64;
 	begin
@@ -529,7 +534,7 @@ DSize, SSize: Int64;
     Move(Source[0], Dest[DSize + 1], SSize * SizeOf(Dest[0]));
   end;
 
-procedure ArrCom(var Dest: Specialize TArray<Double>; constref Source: Specialize TArray<Double>);
+procedure ArrCom(var Dest: TArray<Double>; constref Source: TArray<Double>);
 var
 DSize, SSize: Int64;
 	begin
@@ -539,7 +544,7 @@ DSize, SSize: Int64;
     Move(Source[0], Dest[DSize + 1], SSize * SizeOf(Dest[0]));
   end;
 
-class operator TGEMArray.Initialize(var Dest: TGEMArray);
+class operator TGEMArray<T>.Initialize(var Dest: TGEMArray<T>);
 	begin
   	Dest.fTypeSize := SizeOf(T);
     Initialize(Dest.fElement);
@@ -548,7 +553,7 @@ class operator TGEMArray.Initialize(var Dest: TGEMArray);
     Dest.fHigh := -1;
   end;
 
-class operator TGEMArray.:=(var aArray: specialize TArray<T>): specialize TGEMArray<T>;
+class operator TGEMArray<T>.:=(var aArray: TArray<T>): TGEMArray<T>;
   begin
     Result.fTypeSize := SizeOf(T);
     Initialize(Result.fElement);
@@ -558,22 +563,30 @@ class operator TGEMArray.:=(var aArray: specialize TArray<T>): specialize TGEMAr
     Move(aArray[0], Result.fElement[0], Result.fTypeSize * Result.fSize);
   end;
 
-class operator TGEMArray.:=(var aArray: specialize TGEMArray<T>): specialize TArray<T>;
+class operator TGEMArray<T>.:=(var aArray: TGEMArray<T>): TArray<T>;
   begin
 
   end;
 
-function TGEMArray.GetElement(const Index: UInt64): T;
+function TGEMArray<T>.GetElement(const Index: UInt64): T;
 	begin
     Exit(Self.fElement[Index]);
   end;
 
-procedure TGEMArray.SetElement(const Index: UInt64; Value: T);
+function TGEMArray<T>.GetData(const Index: UInt64): TPointer;
+  begin
+    Result := nil;
+    if Index <= Self.fHigh then begin
+      Result := TPointer(@Self.fElement[Index]);
+    end;
+  end;
+
+procedure TGEMArray<T>.SetElement(const Index: UInt64; Value: T);
 	begin
   	Self.fElement[Index] := Value;
   end;
 
-procedure TGEMArray.UpdateLength(const IncBy: Int64);
+procedure TGEMArray<T>.UpdateLength(const IncBy: Int64);
 	begin
     // change length by IncBy
   	if Self.fSize + IncBy < 0 then begin
@@ -593,28 +606,33 @@ procedure TGEMArray.UpdateLength(const IncBy: Int64);
     if Self.fReserved = 0 then begin
       Self.fReserved := Self.fSize;
     end;
+
     Self.fReserved := Self.fReserved * 2;
+    if Self.fReserved < Self.fSize then begin
+      Self.fReserved := Self.fSize * 2;
+    end;
+
     SetLength(Self.fElement, Self.fReserved);
   end;
 
-function TGEMArray.GetSizeMem(): UInt64;
+function TGEMArray<T>.GetSizeMem(): UInt64;
 	begin
   	Exit(Self.fSize * Self.fTypeSize);
   end;
 
-function TGEMArray.GetReservedMem(): UInt64;
+function TGEMArray<T>.GetReservedMem(): UInt64;
 	begin
  		Exit(Self.fReserved * Self.fTypeSize);
   end;
 
-function TGEMArray.Copy(): specialize TArray<T>;
+function TGEMArray<T>.Copy(): TArray<T>;
 	begin
     Initialize(Result);
 		SetLength(Result, Self.fSize);
     Move(Self.fElement[0], Result[0], Self.fTypeSize * Self.fSize);
   end;
 
-procedure TGEMArray.Reserve(const ResLength: UInt64);
+procedure TGEMArray<T>.Reserve(const ResLength: UInt64);
 	begin
   	Self.fReserved := ResLength;
     SetLength(Self.fElement, Self.fReserved);
@@ -623,31 +641,36 @@ procedure TGEMArray.Reserve(const ResLength: UInt64);
     end;
   end;
 
-procedure TGEMArray.SetSize(const aSize: UInt64);
+procedure TGEMArray<T>.SetSize(const aSize: UInt64);
 	begin
   	Self.UpdateLength(aSize - Self.fSize);
   end;
 
-procedure TGEMArray.Shrink();
+procedure TGEMArray<T>.Shrink();
 	begin
     Self.fReserved := Self.fSize;
     Self.fHigh := Self.fSize - 1;
     SetLength(Self.fElement, Self.fSize);
   end;
 
-procedure TGEMArray.PushBack(const Value: T);
+procedure TGEMArray<T>.PushBack(); overload;
+  begin
+    Self.UpdateLength(1);
+  end;
+
+procedure TGEMArray<T>.PushBack(const Value: T);
 	begin
     Self.UpdateLength(1);
     Self.fElement[Self.fHigh] := Value;
   end;
 
-procedure TGEMArray.PushBack(const Values: specialize TArray<T>);
+procedure TGEMArray<T>.PushBack(const Values: TArray<T>);
 	begin
     Self.UpdateLength(Length(Values));
     Move(Values[0], Self.fElement[Self.fSize - Length(Values)], Self.fTypeSize * Length(Values));
   end;
 
-procedure TGEMArray.PushFront(const Value: T);
+procedure TGEMArray<T>.PushFront(const Value: T);
 var
 I: Integer;
 	begin
@@ -670,7 +693,7 @@ I: Integer;
     Self.fElement[0] := Value;
   end;
 
-procedure TGEMArray.PushFront(const Values: specialize TArray<T>);
+procedure TGEMArray<T>.PushFront(const Values: TArray<T>);
 var
 O: UInt64;
 L: UInt64;
@@ -689,7 +712,7 @@ L: UInt64;
 
   end;
 
-procedure TGEMArray.Insert(const Value: T; const Index: UInt64);
+procedure TGEMArray<T>.Insert(const Value: T; const Index: UInt64);
 var
 MLen: UInt64;
 	begin
@@ -699,7 +722,7 @@ MLen: UInt64;
     Self.fElement[Index] := Value;
   end;
 
-procedure TGEMArray.Insert(const Values: specialize TArray<T>; const Index: UInt64);
+procedure TGEMArray<T>.Insert(const Values: TArray<T>; const Index: UInt64);
 var
 MLen: UInt64;
 	begin
@@ -709,17 +732,17 @@ MLen: UInt64;
     Move(Values[0], Self.fElement[Index], Length(Values) * Self.fTypeSize);
   end;
 
-procedure TGEMArray.PopBack();
+procedure TGEMArray<T>.PopBack();
 	begin
   	Self.UpdateLength(-1);
   end;
 
-procedure TGEMArray.PopBack(const Count: UInt64);
+procedure TGEMArray<T>.PopBack(const Count: UInt64);
 	begin
   	Self.UpdateLength(-Count);
   end;
 
-procedure TGEMArray.PopFront();
+procedure TGEMArray<T>.PopFront();
 var
 I: Integer;
 	begin
@@ -737,13 +760,13 @@ I: Integer;
     Self.UpdateLength(-1);
   end;
 
-procedure TGEMArray.PopFront(const Count: UInt64);
+procedure TGEMArray<T>.PopFront(const Count: UInt64);
 	begin
   	Move(Self.fElement[Count], Self.fElement[0], Self.fTypeSize * (Self.fSize - Count));
     Self.UpdateLength(-Count);
   end;
 
-function TGEMArray.Count(const Value: T): UInt64;
+function TGEMArray<T>.Count(const Value: T): UInt64;
 var
 I: Integer;
 	begin
@@ -753,7 +776,7 @@ I: Integer;
     end;
   end;
 
-function TGEMArray.FindFirst(const Value: T): Int64;
+function TGEMArray<T>.FindFirst(const Value: T): Int64;
 var
 I: Integer;
 	begin
@@ -766,7 +789,7 @@ I: Integer;
     end;
   end;
 
-function TGEMArray.FindLast(const Value: T): Int64;
+function TGEMArray<T>.FindLast(const Value: T): Int64;
 var
 I: Integer;
 	begin
@@ -781,7 +804,7 @@ I: Integer;
     end;
   end;
 
-function TGEMArray.FindAll(const Value: T): specialize TArray<UInt64>;
+function TGEMArray<T>.FindAll(const Value: T): TArray<UInt64>;
 var
 I: Integer;
 C: UInt64;
@@ -803,7 +826,7 @@ C: UInt64;
     end;
   end;
 
-function TGEMArray.Replace(const Value: T; const NewValue: T): UInt64;
+function TGEMArray<T>.Replace(const Value: T; const NewValue: T): UInt64;
 var
 Ret: Array of UInt64;
 I: Integer;
@@ -815,7 +838,7 @@ I: Integer;
    	Exit(Length(Ret));
   end;
 
-function TGEMArray.Replace(const NewValue: T; const Indices: specialize TArray<UInt64>): UInt64;
+function TGEMArray<T>.Replace(const NewValue: T; const Indices: TArray<UInt64>): UInt64;
 var
 I: Integer;
 	begin
@@ -825,7 +848,7 @@ I: Integer;
     Exit(0);
   end;
 
-function TGEMArray.DeleteFirst(const Value: T): UInt64;
+function TGEMArray<T>.DeleteFirst(const Value: T): UInt64;
 var
 C: Integer;
 MSize: UInt64;
@@ -839,7 +862,7 @@ MSize: UInt64;
     Exit(1);
   end;
 
-function TGEMArray.DeleteLast(const Value: T): UInt64;
+function TGEMArray<T>.DeleteLast(const Value: T): UInt64;
 var
 C: Integer;
 MSize: UInt64;
@@ -853,7 +876,7 @@ MSize: UInt64;
     Exit(1);
   end;
 
-function TGEMArray.DeleteAll(const Value: T): UInt64;
+function TGEMArray<T>.DeleteAll(const Value: T): UInt64;
 // Delete indicies that match Value
 // Only move what needs to be moved
 var
@@ -892,12 +915,6 @@ MLen, MSize: UInt64;
     Exit(C);
 
 
-  end;
-
-operator := (const Arr: specialize TArray<Char>): specialize TGEMArray<Char>;
-  begin
-    Result.PushBack(Arr);
-    Result.SetSize(Result.Size * 2);
   end;
 
 end.
